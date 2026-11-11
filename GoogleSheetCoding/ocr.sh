@@ -5,70 +5,67 @@ UPLOAD_DIR="./original"
 OCRED_DIR="./ocred"
 THREADS=2
 
-# 1. 确保目录存在
+# 1. Ensure target directories exist
 mkdir -p "$UPLOAD_DIR" "$OCRED_DIR"
 
-# 2. 生成文件列表
-cd "$UPLOAD_DIR" && all_files=$(ls -1 *.pdf 2>/dev/null)
-cd - > /dev/null
+# 2. Extract cleanly sorted lists of base filenames (excluding temp files)
+find "$UPLOAD_DIR" -maxdepth 1 -name "*.pdf" -exec basename {} \; | sort > all_list.txt
+find "$OCRED_DIR" -maxdepth 1 -name "*.pdf" ! -name "temp_*" -exec basename {} \; | sort > done_list.txt
 
-cd "$OCRED_DIR" && done_files=$(ls -1 *.pdf 2>/dev/null)
-cd - > /dev/null
+# 3. Determine pending tasks by matching filenames (original minus already ocred)
+comm -23 all_list.txt done_list.txt > pending_tasks.txt
 
-# 3. 计算数量
-TOTAL=$(echo "$all_files" | wc -l | tr -d ' ')
-[ -z "$all_files" ] && TOTAL=0
-
-# 4. 生成待处理列表
-echo "$all_files" > all_list.txt
-echo "$done_files" > done_list.txt
-grep -vxFf done_list.txt all_list.txt > pending_tasks.txt
-
+TOTAL=$(wc -l < all_list.txt | tr -d ' ')
+DONE_COUNT=$(wc -l < done_list.txt | tr -d ' ')
 PENDING=$(wc -l < pending_tasks.txt | tr -d ' ')
 
 echo "=========================================="
-echo "总文件数 (All): $TOTAL"
-echo "待处理 (Pending): $PENDING"
+echo "Original files in batch:  $TOTAL"
+echo "Total files in output:    $DONE_COUNT"
+echo "Pending tasks to process: $PENDING"
 echo "=========================================="
 
 if [ "$PENDING" -eq 0 ]; then
-    echo "没有待处理文件。"
+    echo "No pending files found. All files in '$UPLOAD_DIR' have already been processed."
     rm -f all_list.txt done_list.txt pending_tasks.txt
     exit 0
 fi
 
-echo "正在启动并行处理..."
+echo "Starting parallel OCR processing..."
 
-# 5. 执行任务 (已移除 macOS 的 /opt/homebrew/bin/ 前缀)
+# 4. Execute tasks via GNU Parallel
 cat pending_tasks.txt | parallel --jobs "$THREADS" --keep-order --progress '
     file="'"$UPLOAD_DIR"'/{}"
     output_file="'"$OCRED_DIR"'/{}"
     temp_file="'"$OCRED_DIR"'/temp_{}"
 
+    # Compress / standardize PDF prior to OCR
     gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/printer \
        -dColorImageResolution=300 -dGrayImageResolution=300 -dMonoImageResolution=300 \
        -dNOPAUSE -dBATCH -sOutputFile="$temp_file" "$file" > /dev/null 2>&1
-    
+
+    # Apply OCR
     ocrmypdf --force-ocr --clean "$temp_file" "$output_file" > /dev/null 2>&1
-    
+
     rm -f "$temp_file"
-    echo "处理完成: {}"
+    echo "Completed: {}"
 '
 
-echo "正在验证所有任务结果..."
+echo "Validating output files against the original set..."
 
-# 重新核对数量
-FINAL_DONE=$(ls -1 "$OCRED_DIR"/*.pdf 2>/dev/null | wc -l | tr -d ' ')
+# 5. Re-check: Refresh output list and verify every file in original exists in ocred
+find "$OCRED_DIR" -maxdepth 1 -name "*.pdf" ! -name "temp_*" -exec basename {} \; | sort > done_list.txt
+comm -23 all_list.txt done_list.txt > missing_files.txt
 
-if [ "$FINAL_DONE" -lt "$TOTAL" ]; then
-    echo "⚠️ 警告: 处理任务完成后，发现生成的 PDF 数量 ($FINAL_DONE) 小于原始总数 ($TOTAL)！"
-    echo "请检查以下未生成的任务:"
-    ls -1 "$UPLOAD_DIR"/*.pdf | xargs -n1 basename > all_list.txt
-    ls -1 "$OCRED_DIR"/*.pdf | xargs -n1 basename > done_list.txt
-    comm -23 all_list.txt done_list.txt
+MISSING_COUNT=$(wc -l < missing_files.txt | tr -d ' ')
+
+if [ "$MISSING_COUNT" -gt 0 ]; then
+    echo "⚠️ Warning: $MISSING_COUNT file(s) from '$UPLOAD_DIR' failed to generate in '$OCRED_DIR':"
+    cat missing_files.txt
 else
-    echo "✅ 所有任务验证通过！"
+    echo "✅ Validation passed: All files from '$UPLOAD_DIR' exist in '$OCRED_DIR'."
 fi
 
-rm -f all_list.txt done_list.txt pending_tasks.txt
-echo "--- 全部任务已完成！ ---"
+# 6. Cleanup temporary metadata files
+rm -f all_list.txt done_list.txt pending_tasks.txt missing_files.txt
+echo "--- Processing completed ---"
