@@ -3,8 +3,8 @@ setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-set "INPUT_FILE=%~dp0program\original\pdf_links.txt"
-set "DOWNLOAD_DIR=%~dp0program\original"
+set "INPUT_FILE=%~dp0program\TribeNews\original\pdf_links.txt"
+set "DOWNLOAD_DIR=%~dp0program\TribeNews\original"
 set "RELEVANT_DIR=%~dp0program\relevant"
 set "USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 

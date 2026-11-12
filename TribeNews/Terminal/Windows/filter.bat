@@ -9,10 +9,8 @@ echo [STEP 3] Starting the Filtering Process...
 :: 2. Check and Activate venv
 if exist "venv\Scripts\activate" (
     call "venv\Scripts\activate"
-    
-    :: 3. Run app.py inside the program folder
-    cd program
-    python app.py
+    cd program\TribeNews
+    python filter.py
 ) else (
     echo [ERROR] Virtual environment not found. Please run install.bat first.
     pause

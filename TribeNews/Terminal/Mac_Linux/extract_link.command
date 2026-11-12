@@ -12,7 +12,7 @@ echo "Once you have verified the URL, press [ENTER] to start."
 echo "============================================================"
 read -p ""
 
-pbpaste > "./program/temp_source.html"
+pbpaste > "./program/TribeNews/temp_source.html"
 
 source "./venv/bin/activate"
 cd "program"

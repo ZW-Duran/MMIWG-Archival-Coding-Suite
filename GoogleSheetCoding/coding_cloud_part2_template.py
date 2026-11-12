@@ -15,6 +15,7 @@ OCRED_DIR = "./ocred"
 API_KEY_ODD = ""   # 负责奇数行
 API_KEY_EVEN = "" # 负责偶数行
 CLOUD_MODEL_NAME = "gemma-4-31b-it" 
+# CLOUD_MODEL_NAME = "gemini-3.1-flash-lite" 
 
 SYSTEM_INSTRUCTION = """
 You are an expert sociological research assistant reading US newspaper archives. Your task is to perform quantitative coding by COUNTING the number of distinct government officials, law enforcement personnel, and legal professionals referenced in the text.
@@ -65,55 +66,46 @@ def locate_pdf_by_row_index(row_idx, directory):
 
 def analyze_text_with_gemini(text, row_idx):
     prompt = f"{SYSTEM_INSTRUCTION}\n\nArticle Text:\n{text}"
-    
     current_api_key = API_KEY_ODD if row_idx % 2 != 0 else API_KEY_EVEN
     
-    try:
-        genai.configure(api_key=current_api_key)
-        model = genai.GenerativeModel(CLOUD_MODEL_NAME)
-        
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.0
-            )
-        )
-        
-        raw_response = response.text.strip()
-        if not raw_response: 
-            return None
-        
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            # 截取纯净 JSON 字符串
-            start_idx = min([raw_response.find(x) for x in ['[' , '{'] if raw_response.find(x) != -1], default=0)
-            clean_text = raw_response[start_idx:]
-            end_idx = max([clean_text.rfind(x) for x in [']', '}'] if clean_text.rfind(x) != -1], default=len(clean_text))
-            clean_text = clean_text[:end_idx + 1]
+            genai.configure(api_key=current_api_key)
+            model = genai.GenerativeModel(CLOUD_MODEL_NAME)
             
-            parsed_json = json.loads(clean_text)
-            if isinstance(parsed_json, list) and len(parsed_json) > 0:
-                parsed_json = parsed_json[0]
-                
-            return parsed_json
+            # 🛠️ 核心修改：只传入 prompt，去掉 generation_config，避免触发 API 后端不兼容导致的 500 崩溃
+            response = model.generate_content(prompt)
             
-        except json.JSONDecodeError:
-            print(f"   ⚠️ 行号 [{row_idx}] 尝试正则抢救数值数据...")
-            fallback_dict = {}
-            keys = [
-                "tribe_gov_officials", "state_local_gov_officials", 
-                "federal_gov_officials", "law_enforcement", "legal_professionals"
-            ]
-            for k in keys:
-                val_pattern = rf'"{k}"\s*:\s*([0-9]+)'
-                val_match = re.search(val_pattern, raw_response, re.IGNORECASE)
-                val = int(val_match.group(1)) if val_match else 0
-                fallback_dict[k] = val
-            return fallback_dict
+            raw_response = response.text.strip() if response and response.text else ""
+            if not raw_response: 
+                continue
+            
+            # JSON 清洗与解析逻辑保持不变
+            clean_text = re.sub(r'```json\s*|\s*```', '', raw_response).strip()
+            start_idx = clean_text.rfind('{')
+            end_idx = clean_text.rfind('}')
+            
+            if start_idx != -1 and end_idx != -1:
+                return json.loads(clean_text[start_idx:end_idx + 1])
+            else:
+                # 最后的正则兜底
+                fallback_dict = {}
+                keys = [
+                    "tribe_gov_officials", "state_local_gov_officials", 
+                    "federal_gov_officials", "law_enforcement", "legal_professionals"
+                ]
+                for k in keys:
+                    val_pattern = rf'"{k}"\s*:\s*([0-9]+)'
+                    matches = re.findall(val_pattern, raw_response, re.IGNORECASE)
+                    fallback_dict[k] = int(matches[-1]) if matches else 0
+                return fallback_dict
                 
-    except Exception as e:
-        print(f"   ⚠️ Cloud API 通道报错 (行号 {row_idx}): {e}")
-        return None
-
+        except Exception as e:
+            print(f"   ⚠️ Cloud API 通道报错 (行号 {row_idx}) [重试 {attempt+1}/{max_retries}]: {e}")
+            time.sleep(2 * (attempt + 1))
+            
+    return None
 # --- 3. 核心异步线程工作函数 ---
 def process_single_row(task):
     idx, row = task

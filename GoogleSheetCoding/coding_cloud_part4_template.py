@@ -15,6 +15,7 @@ OCRED_DIR = "./ocred"
 API_KEY_ODD = ""   # 负责奇数行
 API_KEY_EVEN = "" # 负责偶数行
 CLOUD_MODEL_NAME = "gemma-4-31b-it" 
+# CLOUD_MODEL_NAME = "gemini-3.5-flash-lite"
 
 # --- 2. 程序 4 专属 System Prompt (受害者明细、嫌疑人信息与交叉汇总) ---
 SYSTEM_INSTRUCTION = """

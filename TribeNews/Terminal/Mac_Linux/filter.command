@@ -8,10 +8,8 @@ echo "[STEP 3] Starting the Filtering Process..."
 # 2. Check and Activate venv
 if [ -d "venv" ]; then
     source "venv/bin/activate"
-    
-    # 3. Run app.py inside the program folder
-    cd "program"
-    python3 app.py
+    cd "program/TribeNews/"
+    python3 filter.py
 else
     echo "[ERROR] Virtual environment not found. Please run install.command first."
     exit 1

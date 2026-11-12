@@ -15,6 +15,7 @@ OCRED_DIR = "./ocred"
 API_KEY_ODD = ""   # 负责奇数行
 API_KEY_EVEN = "" # 负责偶数行
 CLOUD_MODEL_NAME = "gemma-4-31b-it" 
+# CLOUD_MODEL_NAME = "gemini-3.1-flash-lite" 
 
 # --- 2. 强约束 Prompt ---
 SYSTEM_INSTRUCTION = """

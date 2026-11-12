@@ -15,6 +15,7 @@ OCRED_DIR = "./ocred"
 API_KEY_ODD = ""   # 负责奇数行
 API_KEY_EVEN = "" # 负责偶数行
 CLOUD_MODEL_NAME = "gemma-4-31b-it" 
+# CLOUD_MODEL_NAME = "gemini-3.1-flash-lite"
 
 # --- 2. 程序 2 专属 System Prompt ---
 SYSTEM_INSTRUCTION = """
@@ -218,7 +219,7 @@ def main():
     print(f"⚡️ [程序2] 过滤完毕，当前共有 {len(todo_tasks)} 行数据待处理。")
 
     success_count = 0
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         results = executor.map(process_single_row, todo_tasks)
         
         for idx, updated_row, is_success in results:

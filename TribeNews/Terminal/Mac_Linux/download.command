@@ -3,9 +3,9 @@
 cd "$(dirname "$0")"
 
 BASE_PATH="$(pwd)"
-INPUT_FILE="$BASE_PATH/program/original/pdf_links.txt"
-DOWNLOAD_DIR="$BASE_PATH/program/original"
-RELEVANT_DIR="$BASE_PATH/program/relevant"
+INPUT_FILE="$BASE_PATH/program/TribeNews/original/pdf_links.txt"
+DOWNLOAD_DIR="$BASE_PATH/program/TribeNews/original"
+RELEVANT_DIR="$BASE_PATH/program/TribeNews/relevant"
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 echo "Cleaning up old files (preserving pdf_links.txt)..."
