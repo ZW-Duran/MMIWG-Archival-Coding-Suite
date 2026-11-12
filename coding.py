@@ -159,20 +159,24 @@ Final JSON format:
 }
     """,
     "Part 4:": """
-  You are an expert sociological research assistant reading US newspaper archives. Your task is to perform qualitative and quantitative coding for ALL VICTIMS referenced in the text.
+  You are an expert sociological research assistant reading US newspaper archives. Your task is to perform qualitative and quantitative coding for ALL VICTIMS and SUSPECTS/PERPETRATORS referenced in the text.
 
 CRITICAL INSTRUCTIONS:
-1. GEOGRAPHIC BOUNDARY: Process ONLY victims within the USA. EXCLUDE any victims outside of the USA.
+1. GEOGRAPHIC BOUNDARY: Process ONLY victims and suspects within the USA. EXCLUDE any outside of the USA.
 2. INDIVIDUALIZATION: Extract every distinct victim mentioned.
-3. STATUS CATEGORIES:
-   - "murdered_or_missing": Victim was murdered, killed, disappeared, or is currently missing.
-   - "general_violence": Victim suffered non-fatal violence (e.g., physical assault, domestic violence, abuse, kidnapping survivor) but is NOT murdered or missing.
+3. STATUS CATEGORIES (Strictly Choose One of Three):
+- "murdered": Victim was killed, found deceased as a result of homicide, or confirmed murdered.
+- "missing": Victim disappeared, is unaccounted for, or is currently missing (fate/death unconfirmed).
+- "general_victim": Victim suffered non-fatal violence (e.g., physical assault, domestic violence, sexual assault, survived abduction, abuse) and is neither murdered nor missing.
 4. GENDER CATEGORIES: "male", "female", "nonbinary", "unknown".
 5. RACE / TRIBAL AFFILIATION: Extract exact race/ethnicity and tribal affiliation if mentioned (e.g., "Navajo Nation", "Cherokee"). Use "Unknown" if not mentioned.
+6. SUSPECTS / PERPETRATORS: 
+- Count the total number of distinct suspects, persons of interest, or perpetrators referenced in the text (e.g., 0, 1, 2...).
+- Extract the race/ethnicity of the suspect(s). If count is 0, leave race completely empty (""). If there are multiple suspects with different races, list all of them clearly separated by commas within the same string (e.g., "White, Native American").
 
 --- OUTPUT FORMAT ---
-1. Step-by-step list each victim identified, verifying their status, gender, race, tribal affiliation, and age.
-2. At the VERY END, output EXACTLY ONE final JSON object containing both the list of individual victims and the summary count matrix.
+1. Step-by-step list each victim identified, verifying their status ("murdered", "missing", or "general_victim"), gender, race, tribal affiliation, and age.
+2. At the VERY END, output EXACTLY ONE final JSON object containing the list of victims, the summary count matrix, and the suspect information.
 
 Final JSON format:
 {
@@ -183,18 +187,26 @@ Final JSON format:
       "tribal_affiliation": "Tribal Affiliation or 'Unknown'",
       "age": "Age or 'Unknown'",
       "gender": "female", 
-      "status": "murdered_or_missing" 
+      "status": "murdered" 
     }
   ],
+  "suspect_info": {
+    "perpetrators_count": 0,
+    "perpetrators_race": ""
+  },
   "counts": {
-    "mm_id_male": 0,
-    "mm_id_female": 0,
-    "mm_id_nonbinary": 0,
-    "mm_gender_non_id": 0,
+    "murdered_id_male": 0,
+    "murdered_id_female": 0,
+    "murdered_id_nonbinary": 0,
+    "murdered_gender_unknown": 0,
+    "missing_id_male": 0,
+    "missing_id_female": 0,
+    "missing_id_nonbinary": 0,
+    "missing_gender_unknown": 0,
     "gv_id_male": 0,
     "gv_id_female": 0,
     "gv_id_nonbinary": 0,
-    "gv_gender_non_id": 0
+    "gv_gender_unknown": 0
   }
 }
     """,
