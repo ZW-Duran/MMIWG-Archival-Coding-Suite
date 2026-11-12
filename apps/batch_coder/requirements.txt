@@ -1,0 +1,4 @@
+PySide6
+pymupdf>=1.24.0
+google-generativeai>=0.8.0
+pyinstaller
