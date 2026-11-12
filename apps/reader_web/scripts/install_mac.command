@@ -1,6 +1,6 @@
 #!/bin/bash
-# Navigate to the script's directory
-cd "$(dirname "$0")"
+# Navigate to apps/reader_web directory
+cd "$(dirname "$0")/.."
 
 echo "========================================================"
 echo "  News Coding Suite - macOS Environment Installer"

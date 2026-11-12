@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 import streamlit as st
 import fitz  # PyMuPDF
 import spacy
@@ -5,8 +12,10 @@ import os
 import tempfile
 import base64
 import time
-import re
 import pandas as pd
+
+from core.pdf_utils import extract_newsbank_metadata as extract_metadata
+from core.ner_highlighter import highlight_pdf_entities
 
 # --- 1. 初始化配置 ---
 CACHE_DIR = "output_cache"
@@ -27,47 +36,6 @@ def display_pdf(file_path):
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="1000" type="application/pdf"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
-
-def extract_metadata(doc):
-    """提取第一页首行的元数据，使用月份锚点过滤"""
-    page = doc[0]
-    rect = fitz.Rect(0, 0, page.rect.width, 100) 
-    lines = page.get_textbox(rect).strip().split('\n')
-    
-    first_line = ""
-    for line in lines:
-        if line.strip():
-            first_line = line.strip()
-            break
-
-    data = {
-        "Author last": "N/A", "Author First": "N/A", "Other Authors (if any)": "",
-        "Newspaper/Publisher": "", "Publication Year": "", "Article Title": "",
-        "Publication Location": "", "Contextual Location": "", 
-        "News Source": "NewsBank", "Date of publication": "", "page (if any)": ""
-    }
-
-    # 月份锚点逻辑
-    months = r"(?:Jan(?:uary|\.)?|Feb(?:ruary|\.)?|Mar(?:ch|\.)?|Apr(?:il|\.)?|May|Jun(?:e|\.)?|Jul(?:y|\.)?|Aug(?:ust|\.)?|Sep(?:tember|t|\.)?|Oct(?:ober|\.)?|Nov(?:ember|\.)?|Dec(?:ember|\.)?)"
-    pattern = re.compile(
-        rf"^(?:(?P<last>[^,]+?),\s*(?P<first>[^:]+?)\s*:\s*)?(?P<title>.+?)\s*-\s*(?P<publisher>.+?)\s*-\s*(?P<date>{months}\b.*?)\s*-\s*(?P<page>.*)$",
-        re.IGNORECASE
-    )
-    
-    match = pattern.match(first_line)
-    if match:
-        gd = match.groupdict()
-        data["Author last"] = gd.get('last', 'N/A').strip() if gd.get('last') else "N/A"
-        data["Author First"] = gd.get('first', 'N/A').strip() if gd.get('first') else "N/A"
-        data["Article Title"] = gd.get('title', '').strip()
-        data["Newspaper/Publisher"] = gd.get('publisher', '').strip()
-        data["Date of publication"] = gd.get('date', '').strip()
-        data["page (if any)"] = gd.get('page', '').strip()
-        year_match = re.search(r'\d{4}', data["Date of publication"])
-        if year_match: data["Publication Year"] = year_match.group(0)
-    else:
-        data["Article Title"] = first_line
-    return data
 
 # --- 3. 页面布局 ---
 st.title("Semantic Enhancement Reader")
@@ -130,28 +98,15 @@ if submitted and uploaded_file:
         metadata = extract_metadata(doc)
         
         progress_bar = st.progress(0)
-        total_pages = len(doc)
-    
+
         with st.spinner('Model Processing... This may take a while.'):
-            for i, page in enumerate(doc):
-                text = page.get_text()
-                spacy_doc = nlp(text)
-                for ent in spacy_doc.ents:
-                    for rule in st.session_state.rules:
-                        if not rule['label'].strip(): continue
-                        if ent.label_ == rule['label'].strip().upper():
-                            try:
-                                color = eval(rule['color']) 
-                                insts = page.search_for(ent.text, quads=False)
-                                for inst in insts:
-                                    if page.get_textbox(inst).strip() == ent.text:
-                                        annot = page.add_highlight_annot(inst)
-                                        annot.set_colors(stroke=color)
-                                        annot.update()
-                                break 
-                            except: pass
-                progress_bar.progress((i + 1) / total_pages)
-            
+            highlight_pdf_entities(
+                doc,
+                nlp,
+                st.session_state.rules,
+                progress_callback=progress_bar.progress,
+            )
+
             doc.save(output_path)
             doc.close()
 

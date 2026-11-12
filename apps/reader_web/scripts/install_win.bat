@@ -1,5 +1,6 @@
 @echo off
 CHCP 65001 >nul
+cd /d "%~dp0\.."
 echo ========================================================
 echo   News Coding Suite - Windows Environment Installer
 echo ========================================================
