@@ -11,11 +11,11 @@ An end-to-end, open-source archival research monorepo designed for collecting In
 
 ```mermaid
 flowchart LR
-    A["01_scraping\n(Tribe Scrapers & Filters)"] --> B["Manual Screening\n(Google Sheets / CSV)"]
+    A["01_scraping\n(Scraper Templates & Filters)"] --> B["Manual Screening\n(Google Sheets / CSV)"]
+    B <-->|"Screening Aid & Fast-Track\n(Skip C → D → E for small sets)"| F["apps/reader_web\n(Highlighter & Web Coder)"]
     B --> C["apps/drive_downloader\n(Download Screened PDFs)"]
     C --> D["02_preprocessing\n(Rename, OCR & Merge)"]
     D --> E["apps/batch_coder\n(CSV Batch Coding GUI)"]
-    D --> F["apps/reader_web\n(Highlighter & Web Coder)"]
     D --> G["apps/single_coder_desktop\n(Flet Single-Doc GUI)"]
     H["core/\n(Prompts, PDF & NER Utils)"] -.-> E
     H -.-> F
@@ -38,10 +38,10 @@ flowchart LR
 │   ├── drive_downloader/         # PySide6 desktop GUI for batch Google Drive PDF downloads
 │   ├── batch_coder/              # PySide6 desktop GUI for multi-threaded CSV + PDF/TXT coding
 │   ├── single_coder_desktop/     # Flet desktop GUI for single-article coding
-│   └── reader_web/               # Streamlit web suite (Semantic Highlighter & Web Coder)
+│   └── reader_web/               # Streamlit web suite (Manual Screening Highlighter & Fast-Track Web Coder)
 │
 ├── pipeline/                     # Researcher CLI & batch automation scripts
-│   ├── 01_scraping/              # Tribe-specific scrapers, keyword/microfilm filters & OS scripts
+│   ├── 01_scraping/              # Scraper templates, HTML extractor, keyword/microfilm filters & OS scripts
 │   └── 02_preprocessing/         # CSV downloader, file renamer, batch OCR & PDF->MD scripts
 │
 ├── legacy/                       # Archived scripts kept for historical reference
@@ -99,17 +99,17 @@ A lightweight **Flet** desktop GUI for coding individual PDFs or pasted article 
 ---
 
 ### 4. Web Reader & Coding Suite (`apps/reader_web`)
-Two browser-based **Streamlit** applications for interactive reading, semantic highlighting, and evidence-backed single-article coding:
+Two browser-based **Streamlit** applications designed to assist **Manual Screening** and provide a **fast-track workflow** for small, targeted sets of articles (allowing researchers to get coding results in one step and skip the full `drive_downloader` → `02_preprocessing` → `batch_coder` pipeline):
 
-* **`semantic_highlighter.py`**: Uses `spaCy` (`en_core_web_trf`) to highlight custom NER labels (e.g., `PERSON`, `GPE`, `ORG`) directly inside uploaded PDFs and automatically parses NewsBank first-line metadata into an editable table.
+* **`semantic_highlighter.py`**: Assists manual screening by using `spaCy` (`en_core_web_trf`) to highlight custom NER labels (e.g., `PERSON`, `GPE`, `ORG`) directly inside uploaded PDFs and automatically parsing NewsBank first-line metadata into an editable table.
   ![Semantic Enhancement Reader web UI with custom highlight rules, editable metadata table, and highlighted PDF preview](./docs/semantic_highlighter_ui.png)
 
-* **`coding_web.py`**: Interactive Part 1–4 coding interface that returns both quantitative values and verbatim supporting evidence sentences from the article.
+* **`coding_web.py`**: Paired interactive Part 1–4 coding interface for fast-track single-article coding—ideal when working with a small scope of articles that does not require the full batch pipeline. Returns both quantitative values and verbatim supporting evidence sentences from the article.
   ![Web Coding Suite showing Part 1-4 coding output with verbatim evidence highlights](./docs/coding_web_ui.png)
 
 #### Quick Start (`apps/reader_web`)
 * **macOS**:
-  1. If needed, grant execute permission to the helper scripts in `apps/reader_web/scripts/`:
+  1. Executable permissions (`+x`) for all `.command` and `.sh` scripts are pre-configured in Git. If you encounter a permission error (for example, after downloading a ZIP archive instead of cloning), grant execute permission manually:
      ```bash
      chmod +x apps/reader_web/scripts/*.command
      ```
@@ -133,12 +133,12 @@ Two browser-based **Streamlit** applications for interactive reading, semantic h
 
 | Module / Script | Target / Purpose |
 | :--- | :--- |
-| `scrapers/chehalis_yearly.py` | Recursive year-based PDF link extractor for Chehalis Tribe newsletters (`chehalistribe.org`). |
-| `scrapers/tulalip_paginated.py` | Paginated PDF link extractor for Tulalip News (`tulalipnews.com`). |
-| `scrapers/cowlitz_seasonal.py` | Year + season PDF link extractor for Cowlitz Tribe (`cowlitz.org`). |
-| `scrapers/puyallup_wp_uploads.py` | WordPress uploads crawler for Puyallup Tribe (`puyalluptribe-nsn.gov`). |
-| `scrapers/skokomish_sounder.py` | Sounder newsletter link extractor for Skokomish Tribe (`skokomish.org`). |
 | `scrapers/html_clipboard_extract.py` | Extracts PDF links from raw HTML snippets or clipboard source. |
+| `scrapers/templates/yearly_archive_template.py` | Developer template for scraping PDFs organized by per-year archive pages. |
+| `scrapers/templates/paginated_archive_template.py` | Developer template for scraping PDFs across numbered pagination pages. |
+| `scrapers/templates/seasonal_archive_template.py` | Developer template for scraping PDFs from year + season URL slugs. |
+| `scrapers/templates/wp_uploads_bruteforce_template.py` | Developer template for probing WordPress `wp-content/uploads/` by sequential issue numbers or month/year filename patterns. |
+| `scrapers/templates/wp_monthly_uploads_template.py` | Developer template for probing WordPress `wp-content/uploads/YYYY/MM/` monthly directories. |
 | `filters/keyword_filter.py` | Multiprocessing PyMuPDF filter matching gender/violence/Indigenous/MMIWG regex rules and highlighting hits. |
 | `filters/microfilm_filter.py` | Preserves subdirectory hierarchy while filtering and highlighting scanned microfilm PDFs. |
 | `scripts/check_links.sh` | Verifies HTTP 200 status for extracted `pdf_links.txt` entries. |

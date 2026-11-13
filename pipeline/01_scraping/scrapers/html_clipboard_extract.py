@@ -28,7 +28,7 @@ else:
 
 
 links = re.findall(r'href=["\']?([^"\'>]+\.pdf[^\s"\'?>]*)', html_snippet, re.I)
-base_url = "https://snoqualmietribe.us"
+base_url = "https://example.org"  # Replace with your target site's base URL
 
 
 unique_full_links = set()
