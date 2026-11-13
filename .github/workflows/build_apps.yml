@@ -1,0 +1,148 @@
+name: Build Cross-Platform Desktop Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Select which desktop app to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - drive_downloader
+          - batch_coder
+          - single_coder_desktop
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.set-matrix.outputs.apps }}
+    steps:
+      - name: Determine target apps
+        id: set-matrix
+        shell: bash
+        run: |
+          if [ "${{ inputs.app }}" = "all" ]; then
+            echo 'apps=["drive_downloader","batch_coder","single_coder_desktop"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "apps=[\"${{ inputs.app }}\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-windows:
+    needs: prepare-matrix
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.prepare-matrix.outputs.apps) }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r "apps/${{ matrix.app }}/requirements.txt"
+
+      - name: Build Windows Executable
+        shell: bash
+        run: |
+          app="${{ matrix.app }}"
+          case "$app" in
+            drive_downloader)     out_name="DriveDownloader-Windows" ;;
+            batch_coder)          out_name="BatchCoder-Windows" ;;
+            single_coder_desktop) out_name="SingleCoder-Windows" ;;
+          esac
+
+          if [ "$app" = "single_coder_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$out_name" \
+              --add-data "core;core" \
+              --hidden-import core.prompts \
+              -y
+          else
+            extra_args=()
+            if [ "$app" = "batch_coder" ]; then
+              extra_args+=(--hidden-import core.prompts --hidden-import core.pdf_utils)
+            fi
+
+            pyinstaller --noconfirm --clean --noconsole --onefile \
+              --paths . \
+              "${extra_args[@]}" \
+              --name "$out_name" \
+              "apps/$app/main.py"
+          fi
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.app }}-Windows
+          path: dist/*.exe
+
+  build-macos:
+    needs: prepare-matrix
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.prepare-matrix.outputs.apps) }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r "apps/${{ matrix.app }}/requirements.txt"
+
+      - name: Build macOS App Bundle
+        shell: bash
+        run: |
+          app="${{ matrix.app }}"
+          case "$app" in
+            drive_downloader)     app_name="DriveDownloader" ;;
+            batch_coder)          app_name="BatchCoder" ;;
+            single_coder_desktop) app_name="SingleCoder" ;;
+          esac
+
+          if [ "$app" = "single_coder_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$app_name" \
+              --add-data "core:core" \
+              --hidden-import core.prompts \
+              -y
+          else
+            extra_args=()
+            if [ "$app" = "batch_coder" ]; then
+              extra_args+=(--hidden-import core.prompts --hidden-import core.pdf_utils)
+            fi
+
+            pyinstaller --noconfirm --clean --noconsole --windowed \
+              --paths . \
+              "${extra_args[@]}" \
+              --name "$app_name" \
+              "apps/$app/main.py"
+          fi
+
+          cd dist
+          zip -r -y "${app_name}-macOS.zip" "${app_name}.app"
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.app }}-macOS
+          path: dist/*-macOS.zip

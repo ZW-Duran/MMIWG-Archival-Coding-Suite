@@ -1,7 +1,12 @@
+import multiprocessing
 import os
 import re
 import csv
 import sys
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
+
 import requests
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
