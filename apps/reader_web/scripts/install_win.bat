@@ -20,11 +20,15 @@ echo [2/3] Upgrading pip...
 call .venv\Scripts\activate
 python -m pip install --upgrade pip
 
-echo [3/3] Installing required packages...
+echo [3/4] Installing required packages...
 pip install -r requirements.txt
+
+echo [4/4] Downloading spaCy transformer model (en_core_web_trf)...
+python -m spacy download en_core_web_trf
 
 echo.
 echo ========================================================
-echo   [SUCCESS] Setup complete! You can now run coding_win.bat
+echo   [SUCCESS] Setup complete! You can now double-click
+echo   run_coding_win.bat or run_highlighter_win.bat
 echo ========================================================
 pause

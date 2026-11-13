@@ -1,23 +1,37 @@
+# Runtime & generated data
 *.pdf
+*.csv
+*.log
 run.sh
 download.sh
 html.txt
 pdf_links.txt
 bad_links.txt
 temp.py
-*.log
 /skokomish_data
-*.md
-*.csv
-!README.md
-/GoogleSheetCoding/coding_cloud.py
-/GoogleSheetCoding/coding_cloud_part1.py
-/GoogleSheetCoding/coding_cloud_part2.py
-/GoogleSheetCoding/coding_cloud_part3.py
-/GoogleSheetCoding/coding_cloud_part4.py
-*.csv
+output_cache/
 
-#MacOS
+# Keep documentation Markdown files, ignore generated workspace/OCR Markdown
+*.md
+!README.md
+!docs/*.md
+
+# Python & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+
+# Legacy local secret scripts
+legacy/cloud_templates/coding_cloud*.py
+
+# macOS
 .DS_Store
 ._*
 .Spotlight-V100

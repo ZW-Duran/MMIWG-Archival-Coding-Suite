@@ -2,6 +2,9 @@
 
 An end-to-end, open-source archival research monorepo designed for collecting Indigenous/tribal newspaper archives, performing OCR and keyword filtering, highlighting named entities in PDFs, and executing LLM-assisted qualitative & quantitative coding (with a focus on Missing and Murdered Indigenous Women and Girls — MMIWG — media coverage research).
 
+> [!TIP]
+> **New here or just want to run the apps?** Read the step-by-step **[End-User Guide (docs/USER_GUIDE.md)](./docs/USER_GUIDE.md)** for Windows & macOS instructions.
+
 ---
 
 ## Architecture Overview

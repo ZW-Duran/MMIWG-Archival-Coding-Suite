@@ -30,13 +30,16 @@ echo "[2/3] Activating sandbox and upgrading pip..."
 source .venv/bin/activate
 python -m pip install --upgrade pip
 
-echo "[3/3] Installing required packages (Streamlit, Google GenAI, etc.)..."
+echo "[3/4] Installing required packages (Streamlit, Google GenAI, etc.)..."
 pip install -r ./requirements.txt
+
+echo "[4/4] Downloading spaCy transformer model (en_core_web_trf)..."
+python -m spacy download en_core_web_trf
 
 echo ""
 echo "========================================================"
 echo "  [SUCCESS] Environment setup complete!"
 echo "  You can now close this window and double-click"
-echo "  'run_mac.command' to launch the suite."
+echo "  'run_coding_mac.command' or 'run_highlighter_mac.command'."
 echo "========================================================"
 read -p "Press Return to close this window..."
