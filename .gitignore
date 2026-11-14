@@ -8,13 +8,21 @@ html.txt
 pdf_links.txt
 bad_links.txt
 temp.py
-/skokomish_data
 output_cache/
+MMIWG_Models/
+.mmiwg_highlighter_config.json
 
 # Keep documentation Markdown files, ignore generated workspace/OCR Markdown
 *.md
 !README.md
 !docs/*.md
+
+# Keep demo & anonymized sample files in examples/
+!examples/
+!examples/**
+!examples/*.pdf
+!examples/*.csv
+!examples/*.md
 
 # Python & virtual environments
 __pycache__/

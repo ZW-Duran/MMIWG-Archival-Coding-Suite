@@ -46,10 +46,12 @@ if 'processed_data' not in st.session_state:
 
 # --- 4. 侧边栏 ---
 with st.sidebar:
-    access_code = st.text_input("Access Code", type="password")
-    if access_code != "MMIWG":
-        st.warning("Please Provide Correct Password")
-        st.stop()
+    # Optional Access Code gate for public/reverse-proxy deployments:
+    # Uncomment the lines below and set your own password if exposing this app externally.
+    # access_code = st.text_input("Access Code", type="password")
+    # if access_code != "YOUR_PASSWORD":
+    #     st.warning("Please Provide Correct Password")
+    #     st.stop()
 
     st.header("Custom Highlighting Rules")
     st.markdown("""

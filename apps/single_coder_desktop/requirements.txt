@@ -1,4 +1,4 @@
 flet==0.28.3
 pymupdf>=1.24.0
 google-generativeai>=0.8.0
-pyinstaller
+pyinstaller>=6.10.0

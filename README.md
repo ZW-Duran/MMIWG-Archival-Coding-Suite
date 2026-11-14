@@ -3,26 +3,78 @@
 An end-to-end, open-source archival research monorepo designed for collecting Indigenous/tribal newspaper archives, performing OCR and keyword filtering, highlighting named entities in PDFs, and executing LLM-assisted qualitative & quantitative coding (with a focus on Missing and Murdered Indigenous Women and Girls — MMIWG — media coverage research).
 
 > [!TIP]
-> **New here or just want to run the apps?** Read the step-by-step **[End-User Guide (docs/USER_GUIDE.md)](./docs/USER_GUIDE.md)** for Windows & macOS instructions.
+> **Looking to run the pre-built desktop apps (`.exe` / `.app`) without installing Python?**
+> See the **[End-User Guide (docs/USER_GUIDE.md)](./docs/USER_GUIDE.md)** for Release downloads, UI screenshots, and step-by-step researcher instructions.
+> Sample anonymized newspaper PDFs and demo CSVs for testing are reserved under **[examples/](./examples/README.md)**.
 
 ---
 
 ## Architecture Overview
 
 ```mermaid
-flowchart LR
-    A["01_scraping\n(Scraper Templates & Filters)"] --> B["Manual Screening\n(Google Sheets / CSV)"]
-    B <-->|"Screening Aid & Fast-Track\n(Skip C → D → E for small sets)"| F["apps/reader_web\n(Highlighter & Web Coder)"]
-    B --> C["apps/drive_downloader\n(Download Screened PDFs)"]
-    C --> D["02_preprocessing\n(Rename, OCR & Merge)"]
-    D --> E["apps/batch_coder\n(CSV Batch Coding GUI)"]
-    D --> G["apps/single_coder_desktop\n(Flet Single-Doc GUI)"]
-    H["core/\n(Prompts, PDF & NER Utils)"] -.-> E
-    H -.-> F
-    H -.-> G
-```
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#2563eb",
+    "primaryTextColor": "#ffffff",
+    "primaryBorderColor": "#1d4ed8",
+    "lineColor": "#8b949e",
+    "secondaryColor": "#161b22",
+    "tertiaryColor": "#21262d"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "padding": 10,
+    "nodeSpacing": 25,
+    "rankSpacing": 40
+  }
+}}%%
 
-![Overall workflow diagram from web scraping and OCR preprocessing to semantic highlighting and LLM coding](./docs/architecture_overview.png)
+flowchart LR
+    classDef stageBox fill:transparent,stroke:#8b949e,stroke-width:1.5px,stroke-dasharray: 4 4,rx:8,ry:8
+    classDef coreNode fill:#2563eb,stroke:#1d4ed8,stroke-width:1.5px,color:#ffffff,rx:6,ry:6
+    classDef toolNode fill:#0d9488,stroke:#0f766e,stroke-width:1.5px,color:#ffffff,rx:6,ry:6
+    classDef sharedNode fill:#475569,stroke:#334155,stroke-width:1.5px,color:#ffffff,rx:6,ry:6
+    classDef dbNode fill:#d97706,stroke:#b45309,stroke-width:2px,color:#ffffff
+    subgraph LeftCol[" "]
+        direction TB
+        subgraph S1["<b>Stage 1 · Collection</b>"]
+            A["<b>pipeline/01_scraping</b><br/><sub>Scraper Templates &<br/>Keyword Filters</sub>"]:::coreNode
+        end
+        H["<b>Shared Core: core/</b><br/><sub>prompts.py · pdf_utils.py<br/>ner_highlighter.py<br/><i>Powers Assist & Coders</i></sub>"]:::sharedNode
+    end
+    subgraph S2["<b>Stage 2 · Screening & Fast-Track</b>"]
+        direction TB
+        HL["<b>Highlighter Assist</b><br/><sub>apps/highlighter_desktop · reader_web<br/>NER Highlighting + NewsBank Metadata</sub>"]:::toolNode
+        B1["<b>Manual Screening</b><br/><sub>Read & Save Approved Links<br/>to Google Sheets / CSV</sub>"]:::coreNode
+        B2["<b>Screening Aid / Fast-Track</b><br/><sub>Input PDF or Text Directly<br/>for Small Sets</sub>"]:::coreNode
+
+        HL -.->|"Assists"| B1
+        HL -.->|"Assists"| B2
+    end
+    subgraph S3["<b>Stage 3 · Download & OCR</b>"]
+        direction TB
+        C["<b>apps/drive_downloader</b><br/><sub>Download Screened PDFs<br/>as 001.pdf...</sub>"]:::coreNode
+        D["<b>apps/ocr_desktop &<br/>02_preprocessing</b><br/><sub>Batch OCR, Rename & Merge</sub>"]:::coreNode
+        C --> D
+    end
+    subgraph S4["<b>Stage 4 · LLM Coding</b>"]
+        direction TB
+        E["<b>apps/batch_coder</b><br/><sub>Auto-Backfill CSV from<br/>001.txt / 001.pdf</sub>"]:::coreNode
+        G["<b>apps/single_coder_desktop</b><br/><sub>Single-Doc Coding + Verbatim<br/>Evidence Cross-Ref</sub>"]:::coreNode
+    end
+    OUT[("<b>Final Coded CSV /<br/>Research Database</b>")]:::dbNode
+    A --> B1
+    A --> B2
+    B1 --> C
+    D --> E
+    D --> G
+    B2 ==>|"Fast-Track"| G
+    E -->|"Auto-Written"| OUT
+    G -->|"Manual Backfill"| OUT
+    class S1,S2,S3,S4 stageBox
+    style LeftCol fill:transparent,stroke:none
+```
 
 ---
 
@@ -34,100 +86,67 @@ flowchart LR
 │   ├── pdf_utils.py              # PyMuPDF text extraction, path cleaning & NewsBank metadata parser
 │   └── ner_highlighter.py        # spaCy NER PDF annotation engine
 │
-├── apps/                         # End-user GUI & Web applications (PyInstaller / Streamlit)
-│   ├── drive_downloader/         # PySide6 desktop GUI for batch Google Drive PDF downloads
-│   ├── batch_coder/              # PySide6 desktop GUI for multi-threaded CSV + PDF/TXT coding
-│   ├── single_coder_desktop/     # Flet desktop GUI for single-article coding
-│   └── reader_web/               # Streamlit web suite (Manual Screening Highlighter & Fast-Track Web Coder)
+├── apps/                         # Desktop & Web applications (packaged via CI or run from source)
+│   ├── drive_downloader/         # PySide6 desktop app for batch Google Drive PDF downloads
+│   ├── ocr_desktop/              # Flet desktop app for batch OCR (Built-in RapidOCR + optional brew/winget)
+│   ├── batch_coder/              # PySide6 desktop app for multi-threaded CSV + PDF/TXT coding
+│   ├── single_coder_desktop/     # Flet desktop app for single-article coding with verbatim evidence cross-ref
+│   ├── highlighter_desktop/      # Flet desktop app for PDF NER highlighting (on-demand sm/md/lg models)
+│   └── reader_web/               # Streamlit web highlighter (en_core_web_trf; source/ZIP install required)
 │
 ├── pipeline/                     # Researcher CLI & batch automation scripts
 │   ├── 01_scraping/              # Scraper templates, HTML extractor, keyword/microfilm filters & OS scripts
 │   └── 02_preprocessing/         # CSV downloader, file renamer, batch OCR & PDF->MD scripts
 │
+├── examples/                     # Sample anonymized newspaper PDFs & demo CSVs for testing
 ├── legacy/                       # Archived scripts kept for historical reference
-├── docs/                         # Screenshots and visual documentation assets
-└── .github/workflows/            # CI/CD build workflows
+├── docs/                         # End-User Guide, screenshots, and visual documentation assets
+└── .github/workflows/            # CI/CD build workflows (PyInstaller & flet pack)
 ```
 
 ---
 
-## Part 1: End-User Applications (`apps/`)
+## Part 1: Applications Architecture & Build Targets (`apps/`)
 
-All end-user tools share the unified codebook and PDF utilities in `core/`.
+All applications share the canonical codebook and PDF/NER utilities in `core/`. The five desktop applications are compiled into standalone `.exe` (Windows) and `.app.zip` (macOS) binaries via [`.github/workflows/build_apps.yml`](./.github/workflows/build_apps.yml); end-users do not need Python or `pip` to run them.
 
-### 1. Drive Downloader (`apps/drive_downloader`)
-A cross-platform **PySide6** desktop application for downloading manually screened PDFs from Google Drive URLs listed in a CSV exported from Google Sheets.
+| Module | Framework | Entry Point | Release Binary | Technical Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/drive_downloader` | PySide6 | `main.py` | `DriveDownloader` | Streams public Google Drive links from CSV into zero-padded `001.pdf` files. |
+| `apps/ocr_desktop` | Flet | `main.py` | `OCRProcessor` | Hybrid OCR engine (`ocr_engine.py`): ships zero-dependency `RapidOCR` + `PyMuPDF` fallback for machines without Homebrew/winget, and auto-upgrades to `Ghostscript + OCRmyPDF` or `Tesseract` when installed (with one-click `brew`/`winget` installer). |
+| `apps/batch_coder` | PySide6 | `main.py` | `BatchCoder` | Multi-threaded Gemini coder using `BATCH_PROMPTS`; supports dual-key rotation, `.txt`-over-`.pdf` priority, and incremental CSV resume. |
+| `apps/single_coder_desktop` | Flet | `main.py` | `SingleCoder` | Fast-track single-article coder using `WEB_PROMPTS` (or `BATCH_PROMPTS`) with live verbatim quote verification against source text and JSON export. |
+| `apps/highlighter_desktop` | Flet | `main.py` | `Highlighter` | On-demand `en_core_web_sm` / `md` / `lg` wheel downloader (`model_manager.py`, no `pip` required in frozen binaries); stores models in `~/Documents/MMIWG_Models` (user-configurable) and extracts 11-column NewsBank metadata. |
+| `apps/reader_web` | Streamlit | `semantic_highlighter.py` | *Source / ZIP only* | Retained for `en_core_web_trf` (PyTorch + ~500 MB weights, too large for `.exe`/`.app` bundling). |
 
-* **Entry point**: `apps/drive_downloader/main.py`
-* **Run from source**:
-  ```bash
-  pip install -r apps/drive_downloader/requirements.txt
-  python apps/drive_downloader/main.py
-  ```
+### Running Desktop Apps from Source (Developers)
 
-![Drive Downloader GUI showing CSV file selection, column letters, start row, and download progress log](./docs/drive_downloader_ui.png)
+To run or debug any desktop app locally from Python source:
 
----
+```bash
+pip install -r apps/<app_name>/requirements.txt
+python apps/<app_name>/main.py
+```
 
-### 2. Batch Coder (`apps/batch_coder`)
-A cross-platform **PySide6** desktop application for running high-throughput quantitative/qualitative coding across an entire CSV dataset and its corresponding numbered `.txt` / `.pdf` files (`001.txt`, `001.pdf`, etc.) using the Google Gemini API.
+*(Replace `<app_name>` with `drive_downloader`, `ocr_desktop`, `batch_coder`, `single_coder_desktop`, or `highlighter_desktop`. Builds for Windows and macOS can be triggered manually via `Actions → Build Cross-Platform Desktop Apps`.)*
 
-* **Key features**: Dual API key rotation (odd/even row alternation), configurable Part 1–4 codebook selection, per-part model selection, and incremental CSV resume support.
-* **Entry point**: `apps/batch_coder/main.py`
-* **Run from source**:
-  ```bash
-  pip install -r apps/batch_coder/requirements.txt
-  python apps/batch_coder/main.py
-  ```
+### Running `apps/reader_web` (`en_core_web_trf` Transformer Model)
 
-![Batch Coder GUI showing CSV path, source folder, Part 1-4 selection, dual API keys, and batch progress](./docs/batch_coder_ui.png)
+Because `en_core_web_trf` requires PyTorch and ~500 MB transformer weights, `apps/reader_web` is run locally from a cloned repository or downloaded ZIP:
 
----
-
-### 3. Single-Article Desktop Coder (`apps/single_coder_desktop`)
-A lightweight **Flet** desktop GUI for coding individual PDFs or pasted article text without spinning up a browser.
-
-* **Entry point**: `apps/single_coder_desktop/main.py`
-* **Run from source**:
-  ```bash
-  pip install -r apps/single_coder_desktop/requirements.txt
-  python apps/single_coder_desktop/main.py
-  ```
-
-![Single-Article Desktop Coder Flet window showing PDF upload, prompt part selector, and JSON output](./docs/single_coder_desktop_ui.png)
-
----
-
-### 4. Web Reader & Coding Suite (`apps/reader_web`)
-Two browser-based **Streamlit** applications designed to assist **Manual Screening** and provide a **fast-track workflow** for small, targeted sets of articles (allowing researchers to get coding results in one step and skip the full `drive_downloader` → `02_preprocessing` → `batch_coder` pipeline):
-
-* **`semantic_highlighter.py`**: Assists manual screening by using `spaCy` (`en_core_web_trf`) to highlight custom NER labels (e.g., `PERSON`, `GPE`, `ORG`) directly inside uploaded PDFs and automatically parsing NewsBank first-line metadata into an editable table.
-  ![Semantic Enhancement Reader web UI with custom highlight rules, editable metadata table, and highlighted PDF preview](./docs/semantic_highlighter_ui.png)
-
-* **`coding_web.py`**: Paired interactive Part 1–4 coding interface for fast-track single-article coding—ideal when working with a small scope of articles that does not require the full batch pipeline. Returns both quantitative values and verbatim supporting evidence sentences from the article.
-  ![Web Coding Suite showing Part 1-4 coding output with verbatim evidence highlights](./docs/coding_web_ui.png)
-
-#### Quick Start (`apps/reader_web`)
-* **macOS**:
-  1. Executable permissions (`+x`) for all `.command` and `.sh` scripts are pre-configured in Git. If you encounter a permission error (for example, after downloading a ZIP archive instead of cloning), grant execute permission manually:
+1. **Clone or Download ZIP**: `git clone https://github.com/ZW-Duran/MMIWG-Archival-Coding-Suite.git` (or **Code → Download ZIP**).
+2. **macOS**: Double-click `apps/reader_web/scripts/install_mac.command` to create `.venv`, install dependencies, and download `en_core_web_trf`, then launch with `run_highlighter_mac.command`.
+   * *Permissions*: Executable permissions (`+x`) for all `.command` and `.sh` scripts are pre-configured in Git (`100755`). If you downloaded a ZIP archive and encounter a permission error, run:
      ```bash
      chmod +x apps/reader_web/scripts/*.command
      ```
      ![macOS terminal showing chmod +x command before double-clicking .command launcher scripts](./docs/chmod.png)
-  2. Double-click `apps/reader_web/scripts/install_mac.command` to create `.venv` and install dependencies.
-  3. Double-click `apps/reader_web/scripts/run_coding_mac.command` (or run `streamlit run apps/reader_web/semantic_highlighter.py`).
-* **Windows**:
-  1. Double-click `apps/reader_web/scripts/install_win.bat` to set up `.venv`.
-  2. Double-click `apps/reader_web/scripts/run_coding_win.bat` to launch the coding web UI.
-
-> **Note for `semantic_highlighter.py`**: Ensure the spaCy transformer model is installed in your virtual environment:
-> ```bash
-> python -m spacy download en_core_web_trf
-> ```
+3. **Windows**: Double-click `apps/reader_web/scripts/install_win.bat`, then launch with `run_highlighter_win.bat`.
+4. **Reverse Proxy / Public Deployment Note (Developers)**: The `Access Code` gate in `apps/reader_web/semantic_highlighter.py` is commented out by default for local use. If you deploy this Streamlit app behind a reverse proxy or expose it publicly, uncomment the `access_code` block in `semantic_highlighter.py` to require a password.
 
 ---
 
-## Part 2: Data Collection & Preprocessing Pipeline (`pipeline/`)
+## Part 2: Data Collection & CLI Preprocessing Pipeline (`pipeline/`)
 
 ### Stage 1: Scraping & Filtering (`pipeline/01_scraping/`)
 
@@ -145,18 +164,16 @@ Two browser-based **Streamlit** applications designed to assist **Manual Screeni
 
 Platform-specific one-click wrappers are organized under `pipeline/01_scraping/scripts/mac_linux/` and `pipeline/01_scraping/scripts/windows/`, with runtime folders (`original/`, `relevant/`, `ocred/`) under `pipeline/01_scraping/workspace/`.
 
-![Keyword filter output showing highlighted PDF matches saved into the relevant workspace folder](./docs/filter_output_preview.png)
-
 ---
 
-### Stage 2: Preprocessing & OCR (`pipeline/02_preprocessing/`)
+### Stage 2: CLI Preprocessing & OCR (`pipeline/02_preprocessing/`)
 
 | Script | Purpose |
 | :--- | :--- |
 | `download_from_csv.py` | CLI script to download screened Google Drive PDFs from `list.csv`. |
 | `rename_numbered_pdfs.py` | Normalizes `highlighted_<N>_document.pdf` filenames to zero-padded `001.pdf` format. |
 | `highlight_ner.py` | Batch multiprocessing spaCy NER highlighter (`./ocred` → `./highlighted`). |
-| `scripts/ocr_batch.command` / `.sh` / `.bat` | Batch `ocrmypdf` runners for converting scanned PDFs into searchable text PDFs. |
+| `scripts/ocr_batch.command` / `.sh` / `.bat` | CLI `ocrmypdf` batch runners for converting scanned PDFs into searchable text PDFs. |
 | `scripts/ocr_and_merge.command` | Runs parallel `ocrmypdf` on `./upload` and merges per-folder PDFs via `pdfunite`. |
 | `scripts/pdf_to_markdown.command` | Batch converts OCRed PDFs to Markdown for downstream text processing. |
 
@@ -165,6 +182,8 @@ Platform-specific one-click wrappers are organized under `pipeline/01_scraping/s
 ## Shared Core & Legacy Code
 
 * **`core/prompts.py`**: Contains the canonical **Part 1–4** codebook definitions (`BATCH_PROMPTS` and `WEB_PROMPTS`). Any updates to variable definitions or exclusion criteria should be made here once so all apps stay synchronized.
+* **`core/pdf_utils.py`**: Shared PyMuPDF text extraction, path sanitization, and 11-column NewsBank metadata parser.
+* **`core/ner_highlighter.py`**: Shared spaCy NER PDF annotation engine used by `highlighter_desktop` and `reader_web`.
 * **`legacy/`**: Contains superseded scripts (`streamlit_app.py`, `ollama_batch_coder.py`, and `cloud_templates/`) preserved strictly for historical reference.
 
 ---
@@ -172,13 +191,13 @@ Platform-specific one-click wrappers are organized under `pipeline/01_scraping/s
 ## Important Notices & Data Integrity
 
 > [!CAUTION]
-> **API Key Security**: Never commit or share your Google Gemini API keys. Always paste keys at runtime in the GUI/Web sidebar or configure them via environment variables.
+> **API Key Security**: Never commit or share your Google Gemini API keys. Always paste keys at runtime in the GUI sidebar or configure them via environment variables.
 
 > [!WARNING]
 > **CSV Backups & Rate Limits**: `apps/batch_coder` writes results back to your target CSV file. Always keep a backup of your master spreadsheet before starting a batch run, and monitor your Gemini API quota/rate limits.
 
 > [!NOTE]
-> **System Dependencies for Batch OCR**: `pipeline/02_preprocessing/scripts/ocr_batch.*` and `ocr_and_merge.command` require `ocrmypdf`, `tesseract`, `ghostscript` (`gs`), and `poppler` (`pdfunite`) installed on your system.
+> **System Dependencies for CLI Batch OCR**: `pipeline/02_preprocessing/scripts/ocr_batch.*` and `ocr_and_merge.command` require `ocrmypdf`, `tesseract`, `ghostscript` (`gs`), and `poppler` (`pdfunite`) installed on your system. (For a zero-dependency GUI alternative, use the packaged `OCRProcessor` app from `apps/ocr_desktop`.)
 
 ---
 

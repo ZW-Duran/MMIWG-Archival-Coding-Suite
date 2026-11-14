@@ -12,10 +12,11 @@ Welcome! This guide is written for non-technical researchers, student assistants
 | What do you want to do? | Recommended Tool | Interface Type | Requires API Key? |
 | :--- | :--- | :--- | :---: |
 | **Download approved PDFs from a Google Sheet CSV** | **Drive Downloader** (`apps/drive_downloader`) | Desktop App | No |
+| **Convert scanned PDFs in Folder A to searchable OCR PDFs in Folder B** | **Batch OCR Processor** (`apps/ocr_desktop`) | Desktop App | No |
 | **Code hundreds of articles automatically into a CSV** | **Batch Coder** (`apps/batch_coder`) | Desktop App | Yes (Gemini) |
-| **Code 1 article at a time with instant JSON preview** | **Single Coder** (`apps/single_coder_desktop`) | Desktop App | Yes (Gemini) |
-| **Visually highlight people/locations in a PDF** | **Semantic Highlighter** (`apps/reader_web`) | Browser GUI | No |
-| **Code 1 article with word-by-word evidence verification** | **Web Coder** (`apps/reader_web`) | Browser GUI | Yes (Gemini) |
+| **Code 1 article at a time with verbatim evidence verification & JSON output** | **Single Coder** (`apps/single_coder_desktop`) | Desktop App | Yes (Gemini) |
+| **Highlight people/locations in a PDF (no Python needed)** | **Semantic Highlighter Desktop** (`apps/highlighter_desktop`) | Desktop App | No |
+| **Highlight PDFs using `en_core_web_trf` (full repo required)** | **Semantic Highlighter Web** (`apps/reader_web`) | Browser GUI | No |
 
 ---
 
@@ -23,8 +24,8 @@ Welcome! This guide is written for non-technical researchers, student assistants
 
 ### Downloading Pre-built Apps
 Download the executable for your operating system from the repository's **Releases** tab:
-* **Windows**: Download `DriveDownloader-Windows.exe`, `BatchCoder-Windows.exe`, or `SingleCoder-Windows.exe`. Double-click to run.
-* **macOS**: Download `DriveDownloader-macOS.zip`, `BatchCoder-macOS.zip`, or `SingleCoder-macOS.zip`. Double-click to unzip, then drag the `.app` to your Applications folder.
+* **Windows**: Download `DriveDownloader-Windows.exe`, `OCRProcessor-Windows.exe`, `BatchCoder-Windows.exe`, `SingleCoder-Windows.exe`, or `Highlighter-Windows.exe`. Double-click to run.
+* **macOS**: Download `DriveDownloader-macOS.zip`, `OCRProcessor-macOS.zip`, `BatchCoder-macOS.zip`, `SingleCoder-macOS.zip`, or `Highlighter-macOS.zip`. Double-click to unzip, then drag the `.app` to your Applications folder.
 
 ### First-Time OS Security Bypass (No Terminal Needed)
 Because these open-source tools are built for academic research without a paid Apple/Microsoft commercial signature:
@@ -75,7 +76,27 @@ The downloader automatically names files using **three-digit zero-padded row ind
 
 ---
 
-### App 2: Batch Coder (`BatchCoder`)
+### App 2: Batch OCR Processor (`OCRProcessor`)
+
+**Purpose**: Run this step **after `DriveDownloader` and before `BatchCoder`** to batch-convert scanned or image-only PDFs from **Folder A** (e.g., `original/`) into searchable text PDFs in **Folder B** (e.g., `ocred/`).
+
+#### Zero-Dependency Built-In OCR vs. System OCR Tools
+* **Works Immediately Without Homebrew or Admin Installs**: Includes a built-in offline OCR engine (`RapidOCR` + `PyMuPDF`) that works straight out of the `.exe` / `.app` even on Macs without Homebrew/Xcode.
+* **Optional System OCR Upgrade (`Ghostscript` + `Tesseract` + `OCRmyPDF`)**: If you want `OCRmyPDF` archival compression, click **Install System OCR Tools (brew / winget)** inside the app:
+  * **Windows**: Automatically installs `Tesseract OCR` and `Ghostscript` via `winget` (auto-accepting license prompts).
+  * **macOS**: Uses Homebrew (`NONINTERACTIVE=1`) if already installed, or opens Terminal to guide Homebrew + `OCRmyPDF` setup.
+
+#### Step-by-Step
+1. Launch **OCRProcessor**.
+2. Leave **OCR Engine Mode** on **Auto** (automatically picks `Ghostscript + OCRmyPDF` if installed, else `Tesseract`, else **Built-in Offline OCR**).
+3. Click **Browse** next to **Input Folder (Folder A)** and choose your downloaded PDFs folder.
+4. Click **Browse** next to **Output Folder (Folder B)** and choose where searchable PDFs should be saved.
+5. Keep **Skip files already present in Output Folder (Resume Mode)** checked so interrupted runs resume seamlessly.
+6. Click **Start Batch OCR**. Once finished, point **BatchCoder** to **Folder B**.
+
+---
+
+### App 3: Batch Coder (`BatchCoder`)
 
 **Purpose**: Reads an entire CSV and its corresponding pre-extracted articles (`001.txt`, `002.txt`, etc.), analyzes them with Gemini LLM, and backfills qualitative/quantitative coding variables into the CSV.
 
@@ -113,32 +134,55 @@ The matching engine looks for files using the **three-digit zero-padded row pref
 
 ---
 
-### App 3: Single-Article Desktop Coder (`SingleCoder`)
+### App 4: Single-Article Desktop Coder (`SingleCoder`)
 
-**Purpose**: Ideal for testing prompts, pilot coding, or coding individual articles without spinning up a web server.
+**Purpose**: Ideal for testing prompts, pilot coding, or fast-track coding of individual articles with **built-in verbatim evidence cross-referencing**—all inside a standalone `.exe` / `.app` without spinning up a browser.
 
-> [!NOTE]
-> **Single Coder vs. Web Coder**: Both apps share the exact same underlying MMIWG prompt definitions from `core/prompts.py`.
-> * Use **Single Coder (Desktop)** if you want a self-contained `.exe` / `.app` that gives you a clean JSON output immediately.
-> * Use **Web Coder (`coding_web.py`)** if you need to see sentence-by-sentence verbatim quotes highlighted side-by-side.
+* **Include Verbatim Evidence for Cross-Referencing (Enabled by default)**: Instructs the model to return the exact supporting sentence from the article alongside every coded variable (`Part 1`–`Part 4`).
+* **Cross-Reference Evidence Verification Table**: Automatically checks whether each quoted sentence appears verbatim in the source article text (`Verified in text` vs. `Quote check / paraphrased`), allowing researchers to double-check AI decisions immediately.
+* **Copy / Save JSON**: Copy the structured JSON output to the clipboard or save it directly as `coding_output.json`.
 
 #### Step-by-Step
 1. Launch **SingleCoder**.
-2. Select your **Coding Part** (`Part 1`–`Part 4`) and **Model**.
-3. Paste your Gemini API key.
+2. Select your **Coding Part** (`Part 1`–`Part 4`) and **Model**, and keep **Include Verbatim Evidence for Cross-Referencing** checked (or uncheck for counts/values only).
+3. Paste your Gemini API key (and optionally Key 2 for dual-key alternation).
 4. Provide the article content:
-   * Click **Upload PDF** to extract text directly from a file, **or**
+   * Click **Upload/Select Local PDF File** to extract text directly from a PDF, **or**
    * Paste the article text directly into the text box.
-5. Click **Run Coding Analysis**.
-6. The structured JSON coding matrix will appear at the bottom. Click **Show Raw Output** to view the full model response if needed.
+5. Click **Start Analysis**.
+6. Review the **Cross-Reference Evidence Verification** table and structured JSON output below, then click **Copy JSON** or **Save JSON** (or **Show Raw Output Log** to inspect the full model response).
 
 ![Single-Article Desktop Coder interface with PDF upload button, prompt part selector, and formatted JSON output](./single_coder_desktop_ui.png)
 
 ---
 
-### App 4: Web Reader Suite (`apps/reader_web`)
+### App 5: Semantic Highlighter Desktop (`Highlighter`)
 
-The web suite runs locally inside your web browser (Chrome, Edge, Safari, Firefox).
+**Purpose**: Assists **Manual Screening** by highlighting named entities (e.g., `PERSON`, `GPE`, `ORG`) directly inside PDFs and extracting NewsBank header metadata—packaged as a standalone `.exe` / `.app` with **no Python installation required**.
+
+#### On-Demand Model Download & Storage Location
+To keep the installer small and avoid bundling multi-gigabyte PyTorch weights:
+* **Choose Your Model Size**:
+  * `en_core_web_sm` (~12 MB) — Fastest download and processing.
+  * `en_core_web_md` (~40 MB) — Balanced accuracy and word vectors.
+  * `en_core_web_lg` (~560 MB) — Highest non-transformer accuracy.
+* **Safe Default Storage (`Documents/MMIWG_Models`)**: Downloaded models are stored in your user `Documents/MMIWG_Models` folder (never inside `/Applications` or read-only program folders). You can click **Change Folder** at any time to choose a custom directory; your preference is saved automatically.
+
+#### Step-by-Step
+1. Launch **Highlighter**.
+2. Select a spaCy model (`sm`, `md`, or `lg`) and click **Download & Load Model** (only needs to be downloaded once; subsequent launches just click **Load Model**).
+3. Configure your **Custom Entity Highlighting Rules** (defaults: `GPE` in cyan `(0, 1, 1)` and `PERSON` in red `(1, 0, 0)`).
+4. Click **Select PDF**, then **Run NER Highlighting**.
+5. Review or edit the extracted **NewsBank Metadata** (click **Copy Metadata (TSV)** to paste directly into Google Sheets/Excel), inspect the page-by-page preview, and click **Save Highlighted PDF** or **Open in Default PDF Viewer**.
+
+---
+
+### App 6: Semantic Highlighter Web (`apps/reader_web` — `en_core_web_trf`)
+
+The web highlighter runs locally inside your web browser (Chrome, Edge, Safari, Firefox) and is retained for researchers who specifically need the **transformer model (`en_core_web_trf`)**. *(Single-article coding with verbatim evidence verification is now built directly into **SingleCoder**).*
+
+> [!IMPORTANT]
+> **Full Repository Required**: Unlike the five standalone desktop apps above, `apps/reader_web` is **not** distributed as a single `.exe` / `.app`. Before running the setup scripts below, download the repository ZIP from GitHub (**Code → Download ZIP**) or run `git clone`, and ensure **Python 3** is installed on your computer.
 
 #### Zero-Command One-Click Setup
 You do not need to install packages or download AI models in the terminal:
@@ -149,7 +193,6 @@ You do not need to install packages or download AI models in the terminal:
 #### 1. Semantic Enhancement Reader (`semantic_highlighter.py`)
 **Launch**: Double-click `apps/reader_web/scripts/run_highlighter_mac.command` (macOS) or `apps/reader_web/scripts/run_highlighter_win.bat` (Windows).
 
-* **Access Code**: Enter `MMIWG` in the left sidebar to unlock the application.
 * **Custom Entity Highlighting Rules**:
   Enter any standard Named Entity Recognition (NER) tag and its RGB color `(Red, Green, Blue)` between `0` and `1`:
   * `(1, 0, 0)` = Red
@@ -172,28 +215,17 @@ You do not need to install packages or download AI models in the terminal:
 
 ![Semantic Enhancement Reader interface showing sidebar NER rules, editable metadata table, and highlighted PDF preview](./semantic_highlighter_ui.png)
 
-#### 2. Interactive Web Coder (`coding_web.py`)
-**Launch**: Double-click `apps/reader_web/scripts/run_coding_mac.command` (macOS) or `apps/reader_web/scripts/run_coding_win.bat` (Windows).
-
-* Paste your Gemini API key in the sidebar.
-* Select the coding part (`Part 1:`–`Part 4:`), paste the text, and click **Run Coding**.
-* Unlike the desktop version, the web coder displays each coded variable along with the **exact verbatim sentence from the text** used as evidence, allowing researchers to double-check AI decisions immediately.
-
-![Web Coding Suite showing Part 1-4 coding output with verbatim evidence quotes](./coding_web_ui.png)
-
 ---
 
 ## 4. Summary of One-Click Launcher Scripts
 
-To make things easy for anyone on your team, all web-suite scripts are located in `apps/reader_web/scripts/`:
+To make things easy for anyone on your team, the web highlighter scripts are located in `apps/reader_web/scripts/`:
 
 | Platform | Action | Script to Double-Click |
 | :--- | :--- | :--- |
 | **macOS** | First-time Setup | `apps/reader_web/scripts/install_mac.command` |
-| **macOS** | Launch Web Coder | `apps/reader_web/scripts/run_coding_mac.command` |
 | **macOS** | Launch Semantic Highlighter | `apps/reader_web/scripts/run_highlighter_mac.command` |
 | **Windows** | First-time Setup | `apps/reader_web/scripts/install_win.bat` |
-| **Windows** | Launch Web Coder | `apps/reader_web/scripts/run_coding_win.bat` |
 | **Windows** | Launch Semantic Highlighter | `apps/reader_web/scripts/run_highlighter_win.bat` |
 
 *(Note: On macOS, remember to grant initial file permission once by double-clicking or right-clicking if prompted).*

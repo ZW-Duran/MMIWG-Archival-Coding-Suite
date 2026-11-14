@@ -29,6 +29,6 @@ python -m spacy download en_core_web_trf
 echo.
 echo ========================================================
 echo   [SUCCESS] Setup complete! You can now double-click
-echo   run_coding_win.bat or run_highlighter_win.bat
+echo   run_highlighter_win.bat
 echo ========================================================
 pause

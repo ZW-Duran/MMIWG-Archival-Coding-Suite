@@ -13,6 +13,8 @@ on:
           - drive_downloader
           - batch_coder
           - single_coder_desktop
+          - highlighter_desktop
+          - ocr_desktop
 
 jobs:
   prepare-matrix:
@@ -25,7 +27,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ inputs.app }}" = "all" ]; then
-            echo 'apps=["drive_downloader","batch_coder","single_coder_desktop"]' >> "$GITHUB_OUTPUT"
+            echo 'apps=["drive_downloader","batch_coder","single_coder_desktop","highlighter_desktop","ocr_desktop"]' >> "$GITHUB_OUTPUT"
           else
             echo "apps=[\"${{ inputs.app }}\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -60,6 +62,8 @@ jobs:
             drive_downloader)     out_name="DriveDownloader-Windows" ;;
             batch_coder)          out_name="BatchCoder-Windows" ;;
             single_coder_desktop) out_name="SingleCoder-Windows" ;;
+            highlighter_desktop)  out_name="Highlighter-Windows" ;;
+            ocr_desktop)          out_name="OCRProcessor-Windows" ;;
           esac
 
           if [ "$app" = "single_coder_desktop" ]; then
@@ -67,6 +71,23 @@ jobs:
               --name "$out_name" \
               --add-data "core;core" \
               --hidden-import core.prompts \
+              -y
+          elif [ "$app" = "highlighter_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$out_name" \
+              --add-data "core;core" \
+              --add-data "apps/highlighter_desktop/model_manager.py;." \
+              --hidden-import core.pdf_utils \
+              --hidden-import core.ner_highlighter \
+              --collect-all spacy \
+              --collect-all thinc \
+              -y
+          elif [ "$app" = "ocr_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$out_name" \
+              --add-data "apps/ocr_desktop/ocr_engine.py;." \
+              --collect-all rapidocr_onnxruntime \
+              --collect-all onnxruntime \
               -y
           else
             extra_args=()
@@ -117,6 +138,8 @@ jobs:
             drive_downloader)     app_name="DriveDownloader" ;;
             batch_coder)          app_name="BatchCoder" ;;
             single_coder_desktop) app_name="SingleCoder" ;;
+            highlighter_desktop)  app_name="Highlighter" ;;
+            ocr_desktop)          app_name="OCRProcessor" ;;
           esac
 
           if [ "$app" = "single_coder_desktop" ]; then
@@ -124,6 +147,23 @@ jobs:
               --name "$app_name" \
               --add-data "core:core" \
               --hidden-import core.prompts \
+              -y
+          elif [ "$app" = "highlighter_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$app_name" \
+              --add-data "core:core" \
+              --add-data "apps/highlighter_desktop/model_manager.py:." \
+              --hidden-import core.pdf_utils \
+              --hidden-import core.ner_highlighter \
+              --collect-all spacy \
+              --collect-all thinc \
+              -y
+          elif [ "$app" = "ocr_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$app_name" \
+              --add-data "apps/ocr_desktop/ocr_engine.py:." \
+              --collect-all rapidocr_onnxruntime \
+              --collect-all onnxruntime \
               -y
           else
             extra_args=()
