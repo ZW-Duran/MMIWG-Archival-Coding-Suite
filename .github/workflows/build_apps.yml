@@ -1,6 +1,9 @@
 name: Build Cross-Platform Desktop Apps
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       app:
@@ -16,6 +19,9 @@ on:
           - highlighter_desktop
           - ocr_desktop
 
+permissions:
+  contents: write
+
 jobs:
   prepare-matrix:
     runs-on: ubuntu-latest
@@ -26,7 +32,7 @@ jobs:
         id: set-matrix
         shell: bash
         run: |
-          if [ "${{ inputs.app }}" = "all" ]; then
+          if [ "${{ inputs.app }}" = "all" ] || [ -z "${{ inputs.app }}" ]; then
             echo 'apps=["drive_downloader","batch_coder","single_coder_desktop","highlighter_desktop","ocr_desktop"]' >> "$GITHUB_OUTPUT"
           else
             echo "apps=[\"${{ inputs.app }}\"]" >> "$GITHUB_OUTPUT"
@@ -73,21 +79,27 @@ jobs:
               --hidden-import core.prompts \
               -y
           elif [ "$app" = "highlighter_desktop" ]; then
+            SPACY_DIR=$(python -c "import spacy, os; print(os.path.dirname(spacy.__file__))")
+            THINC_DIR=$(python -c "import thinc, os; print(os.path.dirname(thinc.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$out_name" \
               --add-data "core;core" \
               --add-data "apps/highlighter_desktop/model_manager.py;." \
+              --add-data "$SPACY_DIR;spacy" \
+              --add-data "$THINC_DIR;thinc" \
               --hidden-import core.pdf_utils \
               --hidden-import core.ner_highlighter \
-              --collect-all spacy \
-              --collect-all thinc \
+              --hidden-import spacy.lang.en \
+              --hidden-import thinc.backends.numpy_ops \
               -y
           elif [ "$app" = "ocr_desktop" ]; then
+            RAPIDOCR_DIR=$(python -c "import rapidocr_onnxruntime, os; print(os.path.dirname(rapidocr_onnxruntime.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$out_name" \
               --add-data "apps/ocr_desktop/ocr_engine.py;." \
-              --collect-all rapidocr_onnxruntime \
-              --collect-all onnxruntime \
+              --add-data "$RAPIDOCR_DIR;rapidocr_onnxruntime" \
+              --hidden-import rapidocr_onnxruntime \
+              --hidden-import onnxruntime \
               -y
           else
             extra_args=()
@@ -149,21 +161,27 @@ jobs:
               --hidden-import core.prompts \
               -y
           elif [ "$app" = "highlighter_desktop" ]; then
+            SPACY_DIR=$(python -c "import spacy, os; print(os.path.dirname(spacy.__file__))")
+            THINC_DIR=$(python -c "import thinc, os; print(os.path.dirname(thinc.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$app_name" \
               --add-data "core:core" \
               --add-data "apps/highlighter_desktop/model_manager.py:." \
+              --add-data "$SPACY_DIR:spacy" \
+              --add-data "$THINC_DIR:thinc" \
               --hidden-import core.pdf_utils \
               --hidden-import core.ner_highlighter \
-              --collect-all spacy \
-              --collect-all thinc \
+              --hidden-import spacy.lang.en \
+              --hidden-import thinc.backends.numpy_ops \
               -y
           elif [ "$app" = "ocr_desktop" ]; then
+            RAPIDOCR_DIR=$(python -c "import rapidocr_onnxruntime, os; print(os.path.dirname(rapidocr_onnxruntime.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$app_name" \
               --add-data "apps/ocr_desktop/ocr_engine.py:." \
-              --collect-all rapidocr_onnxruntime \
-              --collect-all onnxruntime \
+              --add-data "$RAPIDOCR_DIR:rapidocr_onnxruntime" \
+              --hidden-import rapidocr_onnxruntime \
+              --hidden-import onnxruntime \
               -y
           else
             extra_args=()
@@ -178,11 +196,40 @@ jobs:
               "apps/$app/main.py"
           fi
 
-          cd dist
-          zip -r -y "${app_name}-macOS.zip" "${app_name}.app"
-
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.app }}-macOS
-          path: dist/*-macOS.zip
+          path: dist/*.app
+
+  publish-release:
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+
+      - name: Prepare Release Files (Raw .exe & Single-Layer macOS .zip)
+        shell: bash
+        run: |
+          mkdir -p final-release
+          find release-assets -name "*.exe" -exec cp {} final-release/ \;
+          for app_dir in release-assets/*-macOS/*.app; do
+            app_base=$(basename "$app_dir" .app)
+            parent_dir=$(dirname "$app_dir")
+            (cd "$parent_dir" && zip -r -y "../../final-release/${app_base}-macOS.zip" "${app_base}.app")
+          done
+          ls -lh final-release/
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          gh release create "$TAG_NAME" final-release/* \
+            --title "$TAG_NAME" \
+            --notes "Pre-built Windows (.exe) and macOS (.zip) desktop binaries for $TAG_NAME." \
+            --prerelease
