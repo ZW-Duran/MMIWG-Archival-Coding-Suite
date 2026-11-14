@@ -94,6 +94,8 @@ The downloader automatically names files using **three-digit zero-padded row ind
 5. Keep **Skip files already present in Output Folder (Resume Mode)** checked so interrupted runs resume seamlessly.
 6. Click **Start Batch OCR**. Once finished, point **BatchCoder** to **Folder B**.
 
+![Batch OCR Processor interface showing Folder A to Folder B selection, engine mode, and live progress log](./ocr_desktop_ui.png)
+
 ---
 
 ### App 3: Batch Coder (`BatchCoder`)
@@ -175,6 +177,8 @@ To keep the installer small and avoid bundling multi-gigabyte PyTorch weights:
 4. Click **Select PDF**, then **Run NER Highlighting**.
 5. Review or edit the extracted **NewsBank Metadata** (click **Copy Metadata (TSV)** to paste directly into Google Sheets/Excel), inspect the page-by-page preview, and click **Save Highlighted PDF** or **Open in Default PDF Viewer**.
 
+![Semantic Highlighter Desktop interface showing on-demand spaCy model setup, NER rules, 11-column metadata, and PDF preview](./highlighter_desktop_ui.png)
+
 ---
 
 ### App 6: Semantic Highlighter Web (`apps/reader_web` — `en_core_web_trf`)
@@ -235,7 +239,7 @@ To make things easy for anyone on your team, the web highlighter scripts are loc
 ## 5. Frequently Asked Questions (FAQ)
 
 **Q: Do I need to re-download the spaCy model every time?**  
-A: No. The one-click installer (`install_mac.command` / `install_win.bat`) downloads it once into the `.venv` folder.
+A: No. For **Highlighter (Desktop)**, the selected `sm`/`md`/`lg` model is downloaded once into `Documents/MMIWG_Models` (or your custom folder) and reused on future launches via **Load Model**. For **Semantic Highlighter Web**, `install_mac.command` / `install_win.bat` downloads `en_core_web_trf` once into `.venv`.
 
 **Q: Why was an article skipped during Batch Coding?**  
 A: `BatchCoder` only processes rows where Column `E` is **non-empty** and the target coding column is **empty**. If Column `E` is blank, or if the target column already has a value (from an earlier run or a skip placeholder), the row is skipped. Clear the target column in your CSV if you want to re-code it.
