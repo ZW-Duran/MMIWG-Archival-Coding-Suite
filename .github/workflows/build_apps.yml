@@ -58,6 +58,7 @@ jobs:
         shell: bash
         run: |
           app="${{ matrix.app }}"
+          icon_path="assets/icons/$app.ico"
           case "$app" in
             drive_downloader)     out_name="DriveDownloader-Windows" ;;
             batch_coder)          out_name="BatchCoder-Windows" ;;
@@ -66,9 +67,25 @@ jobs:
             ocr_desktop)          out_name="OCRProcessor-Windows" ;;
           esac
 
-          if [ "$app" = "single_coder_desktop" ]; then
+          if [ "$app" = "drive_downloader" ]; then
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$out_name" \
+              --icon "$icon_path" \
+              --add-data "core;core" \
+              --hidden-import core.pdf_utils \
+              -y
+          elif [ "$app" = "batch_coder" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$out_name" \
+              --icon "$icon_path" \
+              --add-data "core;core" \
+              --hidden-import core.prompts \
+              --hidden-import core.pdf_utils \
+              -y
+          elif [ "$app" = "single_coder_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$out_name" \
+              --icon "$icon_path" \
               --add-data "core;core" \
               --hidden-import core.prompts \
               -y
@@ -77,6 +94,7 @@ jobs:
             THINC_DIR=$(python -c "import thinc, os; print(os.path.dirname(thinc.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$out_name" \
+              --icon "$icon_path" \
               --add-data "core;core" \
               --add-data "apps/highlighter_desktop/model_manager.py;." \
               --add-data "$SPACY_DIR;spacy" \
@@ -90,22 +108,12 @@ jobs:
             RAPIDOCR_DIR=$(python -c "import rapidocr_onnxruntime, os; print(os.path.dirname(rapidocr_onnxruntime.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$out_name" \
+              --icon "$icon_path" \
               --add-data "apps/ocr_desktop/ocr_engine.py;." \
               --add-data "$RAPIDOCR_DIR;rapidocr_onnxruntime" \
               --hidden-import rapidocr_onnxruntime \
               --hidden-import onnxruntime \
               -y
-          else
-            extra_args=()
-            if [ "$app" = "batch_coder" ]; then
-              extra_args+=(--hidden-import core.prompts --hidden-import core.pdf_utils)
-            fi
-
-            pyinstaller --noconfirm --clean --noconsole --onefile \
-              --paths . \
-              "${extra_args[@]}" \
-              --name "$out_name" \
-              "apps/$app/main.py"
           fi
 
       - name: Upload Windows Artifact
@@ -140,6 +148,7 @@ jobs:
         shell: bash
         run: |
           app="${{ matrix.app }}"
+          icon_path="assets/icons/$app.ico"
           case "$app" in
             drive_downloader)     app_name="DriveDownloader" ;;
             batch_coder)          app_name="BatchCoder" ;;
@@ -148,9 +157,25 @@ jobs:
             ocr_desktop)          app_name="OCRProcessor" ;;
           esac
 
-          if [ "$app" = "single_coder_desktop" ]; then
+          if [ "$app" = "drive_downloader" ]; then
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$app_name" \
+              --icon "$icon_path" \
+              --add-data "core:core" \
+              --hidden-import core.pdf_utils \
+              -y
+          elif [ "$app" = "batch_coder" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$app_name" \
+              --icon "$icon_path" \
+              --add-data "core:core" \
+              --hidden-import core.prompts \
+              --hidden-import core.pdf_utils \
+              -y
+          elif [ "$app" = "single_coder_desktop" ]; then
+            PYTHONPATH=. flet pack "apps/$app/main.py" \
+              --name "$app_name" \
+              --icon "$icon_path" \
               --add-data "core:core" \
               --hidden-import core.prompts \
               -y
@@ -159,6 +184,7 @@ jobs:
             THINC_DIR=$(python -c "import thinc, os; print(os.path.dirname(thinc.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$app_name" \
+              --icon "$icon_path" \
               --add-data "core:core" \
               --add-data "apps/highlighter_desktop/model_manager.py:." \
               --add-data "$SPACY_DIR:spacy" \
@@ -172,22 +198,12 @@ jobs:
             RAPIDOCR_DIR=$(python -c "import rapidocr_onnxruntime, os; print(os.path.dirname(rapidocr_onnxruntime.__file__))")
             PYTHONPATH=. flet pack "apps/$app/main.py" \
               --name "$app_name" \
+              --icon "$icon_path" \
               --add-data "apps/ocr_desktop/ocr_engine.py:." \
               --add-data "$RAPIDOCR_DIR:rapidocr_onnxruntime" \
               --hidden-import rapidocr_onnxruntime \
               --hidden-import onnxruntime \
               -y
-          else
-            extra_args=()
-            if [ "$app" = "batch_coder" ]; then
-              extra_args+=(--hidden-import core.prompts --hidden-import core.pdf_utils)
-            fi
-
-            pyinstaller --noconfirm --clean --noconsole --windowed \
-              --paths . \
-              "${extra_args[@]}" \
-              --name "$app_name" \
-              "apps/$app/main.py"
           fi
 
       - name: Upload macOS Artifact

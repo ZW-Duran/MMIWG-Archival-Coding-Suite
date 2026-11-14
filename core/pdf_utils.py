@@ -2,7 +2,11 @@
 
 import os
 import re
-import fitz  # PyMuPDF
+
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
 
 
 def clean_path(raw_path: str) -> str:

@@ -139,6 +139,8 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
     page.scroll = ft.ScrollMode.AUTO
+    page.window.width = 1040
+    page.window.height = 860
 
     # --- UI Controls ---
     task_dropdown = ft.Dropdown(
@@ -165,7 +167,7 @@ def main(page: ft.Page):
         password=True,
         can_reveal_password=True,
         hint_text="Required Google AI Studio API Key",
-        expand=True,
+        width=380,
     )
 
     api_key_2_input = ft.TextField(
@@ -173,7 +175,7 @@ def main(page: ft.Page):
         password=True,
         can_reveal_password=True,
         hint_text="Optional: Alternate requests to bypass quota limits",
-        expand=True,
+        width=380,
     )
 
     article_text_input = ft.TextField(
@@ -411,43 +413,75 @@ def main(page: ft.Page):
         style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_700),
     )
 
-    header_card = ft.Card(
-        content=ft.Container(
-            content=ft.Column(
-                [
-                    ft.Text("One-Touch News Text Quantitative Coding Tool", size=22, weight=ft.FontWeight.BOLD),
-                    ft.Text(
-                        "Fast-track single-article coding with verbatim evidence cross-referencing.",
-                        color=ft.Colors.GREY_700,
-                    ),
-                ]
-            ),
-            padding=15,
-        )
-    )
-
     config_row = ft.Row(
         [task_dropdown, model_dropdown, btn_pick_pdf, evidence_checkbox],
         alignment=ft.MainAxisAlignment.START,
+        spacing=12,
         wrap=True,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
-    keys_row = ft.Row([api_key_1_input, api_key_2_input], alignment=ft.MainAxisAlignment.START, wrap=True)
-    action_row = ft.Row([btn_run, progress_ring, status_text], alignment=ft.MainAxisAlignment.START)
+    keys_row = ft.Row(
+        [api_key_1_input, api_key_2_input],
+        alignment=ft.MainAxisAlignment.START,
+        spacing=12,
+        wrap=True,
+    )
+    action_row = ft.Row(
+        [btn_run, progress_ring, status_text],
+        alignment=ft.MainAxisAlignment.START,
+        spacing=12,
+        wrap=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
 
     page.add(
-        header_card,
-        ft.Divider(),
-        config_row,
-        keys_row,
-        ft.Divider(),
-        article_text_input,
-        action_row,
-        ft.Divider(),
+        ft.Text("One-Touch News Text Quantitative Coding Tool", size=22, weight=ft.FontWeight.BOLD),
+        ft.Text(
+            "Fast-track single-article coding with verbatim evidence cross-referencing.",
+            size=13,
+            color=ft.Colors.GREY_700,
+        ),
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("1. Coding Configuration & API Keys", size=15, weight=ft.FontWeight.BOLD),
+                        config_row,
+                        keys_row,
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("2. Article Content & Execution", size=15, weight=ft.FontWeight.BOLD),
+                        article_text_input,
+                        action_row,
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
         evidence_card,
-        output_code_field,
-        ft.Row([copy_json_btn, save_json_btn, toggle_log_btn], wrap=True),
-        raw_log_field,
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("3. Structured JSON Output & Raw Log", size=15, weight=ft.FontWeight.BOLD),
+                        output_code_field,
+                        ft.Row([copy_json_btn, save_json_btn, toggle_log_btn], wrap=True),
+                        raw_log_field,
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
     )
 
 

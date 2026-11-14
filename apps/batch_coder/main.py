@@ -10,22 +10,20 @@ if not getattr(sys, "frozen", False):
     if _REPO_ROOT not in sys.path:
         sys.path.insert(0, _REPO_ROOT)
 
-import os
-import re
 import csv
 import json
-import fitz  # PyMuPDF
-import google.generativeai as genai
+import os
+import re
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QLineEdit, QPushButton, QProgressBar, QTextEdit,
-    QFileDialog, QComboBox, QGroupBox, QFrame
-)
+import fitz  # PyMuPDF
+import flet as ft
+import google.generativeai as genai
 
 from core.pdf_utils import clean_path, read_source_file_content
+from core.prompts import BATCH_PROMPTS as PROMPTS
+
 
 def locate_source_file_by_row_index(row_idx: int, directory: str) -> str:
     if not directory or not os.path.exists(directory):
@@ -44,11 +42,10 @@ def locate_source_file_by_row_index(row_idx: int, directory: str) -> str:
 
     return found_pdf
 
+
 # ==============================================================================
 # 2. System Instructions & Model Config
 # ==============================================================================
-from core.prompts import BATCH_PROMPTS as PROMPTS
-
 MODEL_OPTIONS_PER_PART = {
     "Part 1": ["gemma-4-31b-it", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemma-4-26b-it"],
     "Part 2": ["gemma-4-31b-it", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"],
@@ -63,10 +60,18 @@ DEFAULT_MODEL_PER_PART = {
     "Part 4": "gemini-3.5-flash-lite",
 }
 
+
 # ==============================================================================
-# 3. AI 分析与逻辑处理
+# 3. AI Analysis & Row Coding Logic
 # ==============================================================================
-def analyze_text_with_gemini(text: str, row_idx: int, system_instruction: str, model_name: str, api_key_1: str, api_key_2: str) -> dict:
+def analyze_text_with_gemini(
+    text: str,
+    row_idx: int,
+    system_instruction: str,
+    model_name: str,
+    api_key_1: str,
+    api_key_2: str,
+) -> dict:
     prompt = f"{system_instruction}\n\nArticle Text:\n{text}"
 
     if not api_key_2 or not api_key_2.strip():
@@ -74,33 +79,42 @@ def analyze_text_with_gemini(text: str, row_idx: int, system_instruction: str, m
     else:
         current_api_key = api_key_1.strip() if row_idx % 2 != 0 else api_key_2.strip()
 
+    raw_response = ""
     try:
         genai.configure(api_key=current_api_key)
         model = genai.GenerativeModel(model_name)
 
         response = model.generate_content(
             prompt,
-            generation_config=genai.types.GenerationConfig(temperature=0.0)
+            generation_config=genai.types.GenerationConfig(temperature=0.0),
         )
 
         raw_response = response.text.strip() if response and response.text else ""
         if not raw_response:
             return None
 
-        clean_text = re.sub(r'```json\s*|\s*```', '', raw_response).strip()
-        start_idx = clean_text.find('{')
-        end_idx = clean_text.rfind('}')
+        clean_text = re.sub(r"```json\s*|\s*```", "", raw_response).strip()
+        start_idx = clean_text.find("{")
+        end_idx = clean_text.rfind("}")
 
         if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
-            json_str = clean_text[start_idx:end_idx + 1]
+            json_str = clean_text[start_idx : end_idx + 1]
             return json.loads(json_str)
         return None
     except Exception:
         try:
             if "mmiwg_mentioned" in system_instruction:
                 fallback = {}
-                keys = ["mmiwg_mentioned", "mmiwg_movement", "specific_case", "multiple_cases",
-                        "legal_protection", "family_friends_referenced", "details_victim_life", "details_perpetrator"]
+                keys = [
+                    "mmiwg_mentioned",
+                    "mmiwg_movement",
+                    "specific_case",
+                    "multiple_cases",
+                    "legal_protection",
+                    "family_friends_referenced",
+                    "details_victim_life",
+                    "details_perpetrator",
+                ]
                 for k in keys:
                     m = re.search(rf'"{k}"\s*:\s*([01])', raw_response, re.IGNORECASE)
                     fallback[k] = int(m.group(1)) if m else 0
@@ -109,8 +123,12 @@ def analyze_text_with_gemini(text: str, row_idx: int, system_instruction: str, m
             pass
         return None
 
+
 def process_single_row(task):
-    idx, row, part, model_name, ocred_dir, key1, key2 = task
+    idx, row, part, model_name, ocred_dir, key1, key2, stop_event = task
+    if stop_event.is_set():
+        return idx, row, False, f"⏹️ Row [{idx}]: Cancelled by user."
+
     source_path = locate_source_file_by_row_index(idx, ocred_dir)
 
     if not source_path:
@@ -143,7 +161,8 @@ def process_single_row(task):
                 return default
 
         if part == "Part 1":
-            while len(row) <= 24: row.append("")
+            while len(row) <= 24:
+                row.append("")
             row[15] = safe_get_val("mmiwg_mentioned")
             row[16] = safe_get_val("mmiwg_movement")
             row[17] = safe_get_val("specific_case")
@@ -154,7 +173,8 @@ def process_single_row(task):
             row[24] = safe_get_val("details_perpetrator")
 
         elif part == "Part 2":
-            while len(row) <= 33: row.append("")
+            while len(row) <= 33:
+                row.append("")
             row[29] = safe_get_val("tribe_gov_officials")
             row[30] = safe_get_val("state_local_gov_officials")
             row[31] = safe_get_val("federal_gov_officials")
@@ -162,7 +182,8 @@ def process_single_row(task):
             row[33] = safe_get_val("legal_professionals")
 
         elif part == "Part 3":
-            while len(row) <= 39: row.append("")
+            while len(row) <= 39:
+                row.append("")
             row[34] = safe_get_val("academics")
             row[35] = safe_get_val("other_experts")
             row[38] = safe_get_val("family_friends_referenced")
@@ -173,17 +194,22 @@ def process_single_row(task):
             victims = analysis.get("victims", [])
             suspect_info = analysis.get("suspect_info", {})
 
-            while len(row) <= 47: row.append("")
+            while len(row) <= 47:
+                row.append("")
 
-            try: p_count = int(suspect_info.get("perpetrators_count", 0))
-            except Exception: p_count = 0
+            try:
+                p_count = int(suspect_info.get("perpetrators_count", 0))
+            except Exception:
+                p_count = 0
             row[36] = p_count
             row[37] = "" if p_count == 0 else str(suspect_info.get("perpetrators_race", ""))
 
             def safe_get_count(c_key, alt_key=""):
                 c_val = counts.get(c_key, counts.get(alt_key, 0))
-                try: return int(c_val)
-                except Exception: return 0
+                try:
+                    return int(c_val)
+                except Exception:
+                    return 0
 
             row[40] = safe_get_count("murdered_id_male", "mm_id_male")
             row[41] = safe_get_count("murdered_id_female", "mm_id_female")
@@ -197,8 +223,9 @@ def process_single_row(task):
             base_offset = 48
             for i, v in enumerate(victims):
                 v_start = base_offset + (i * 6)
-                while len(row) < v_start + 6: row.append("")
-                row[v_start]     = str(v.get("name", ""))
+                while len(row) < v_start + 6:
+                    row.append("")
+                row[v_start] = str(v.get("name", ""))
                 row[v_start + 1] = str(v.get("race", ""))
                 row[v_start + 2] = str(v.get("tribal_affiliation", ""))
                 row[v_start + 3] = str(v.get("age", ""))
@@ -209,306 +236,409 @@ def process_single_row(task):
     except Exception as e:
         return idx, row, False, f"❌ Row [{idx}] Backfill error: {e}"
 
-class BatchCodingWorker(QThread):
-    progress = Signal(int, int)
-    log_signal = Signal(str)
-    status_signal = Signal(str, str)  # text, color
-    finished = Signal()
 
-    def __init__(self, csv_p, out_csv_p, ocred_dir_p, part, model_name, start_r_val, key1, key2):
-        super().__init__()
-        self.csv_p = csv_p
-        self.out_csv_p = out_csv_p
-        self.ocred_dir_p = ocred_dir_p
-        self.part = part
-        self.model_name = model_name
-        self.start_r_val = start_r_val
-        self.key1 = key1
-        self.key2 = key2
+# ==============================================================================
+# 4. Flet Desktop UI
+# ==============================================================================
+def main(page: ft.Page):
+    page.title = "MMIWG News Text Quantitative Batch Coder"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.padding = 20
+    page.scroll = ft.ScrollMode.AUTO
+    page.window.width = 1040
+    page.window.height = 860
 
-    def run(self):
-        self.log_signal.emit(f"🚀 Initializing Batch Process for [{self.part}] using [{self.model_name}]...")
-        self.log_signal.emit(f"📖 CSV Input: {self.csv_p}")
-        self.log_signal.emit(f"💾 CSV Output: {self.out_csv_p}")
-        self.log_signal.emit(f"📂 Source Folder: {self.ocred_dir_p} (TXT Preferred over PDF, All Depths)")
-        self.log_signal.emit(f"📍 Start Row Index: {self.start_r_val}")
+    state = {
+        "running": False,
+        "stop_event": threading.Event(),
+        "log_lock": threading.Lock(),
+    }
 
-        source_csv = self.out_csv_p if os.path.exists(self.out_csv_p) else self.csv_p
-        try:
-            with open(source_csv, mode='r', encoding='utf-8', newline='') as f:
-                rows = list(csv.reader(f))
-        except UnicodeDecodeError:
-            with open(source_csv, mode='r', encoding='gbk', errors='ignore', newline='') as f:
-                rows = list(csv.reader(f))
+    # --- Section 1: File & Directory Paths ---
+    csv_input = ft.TextField(
+        label="Input CSV Path",
+        value="./list.csv",
+        expand=True,
+        dense=True,
+    )
+    out_csv_input = ft.TextField(
+        label="Output CSV Path",
+        value="./list_coded.csv",
+        expand=True,
+        dense=True,
+    )
+    ocred_dir_input = ft.TextField(
+        label="OCR Source Folder",
+        value="./ocred",
+        expand=True,
+        dense=True,
+    )
 
-        todo_tasks = []
-        for idx, row in enumerate(rows, start=1):
-            if idx < self.start_r_val or idx == 1 or len(row) < 4:
-                continue
+    def on_csv_picked(e: ft.FilePickerResultEvent):
+        if e.files and len(e.files) > 0 and e.files[0].path:
+            csv_input.value = clean_path(e.files[0].path)
+            page.update()
 
-            e_col_val = row[4].strip() if len(row) > 4 else ""
+    def on_out_csv_picked(e: ft.FilePickerResultEvent):
+        if e.path:
+            out_csv_input.value = clean_path(e.path)
+            page.update()
 
-            check_val = ""
-            if self.part == "Part 1":
-                check_val = row[15].strip() if len(row) > 15 else ""
-            elif self.part == "Part 2":
-                check_val = row[29].strip() if len(row) > 29 else ""
-            elif self.part == "Part 3":
-                check_val = row[34].strip() if len(row) > 34 else ""
-            elif self.part == "Part 4":
-                check_val = row[40].strip() if len(row) > 40 else ""
+    def on_dir_picked(e: ft.FilePickerResultEvent):
+        if e.path:
+            ocred_dir_input.value = clean_path(e.path)
+            page.update()
 
-            if e_col_val and check_val == "":
-                todo_tasks.append((idx, row, self.part, self.model_name, self.ocred_dir_p, self.key1, self.key2))
+    csv_picker = ft.FilePicker(on_result=on_csv_picked)
+    out_csv_picker = ft.FilePicker(on_result=on_out_csv_picked)
+    dir_picker = ft.FilePicker(on_result=on_dir_picked)
+    page.overlay.extend([csv_picker, out_csv_picker, dir_picker])
 
-        total_tasks = len(todo_tasks)
-        self.log_signal.emit(f"⚡️ [Task Filtering] Found {total_tasks} rows requiring coding analysis.")
+    browse_csv_btn = ft.OutlinedButton(
+        "Browse",
+        icon=ft.Icons.FILE_OPEN,
+        on_click=lambda _: csv_picker.pick_files(
+            dialog_title="Select Input CSV",
+            allow_multiple=False,
+            allowed_extensions=["csv"],
+        ),
+    )
+    browse_out_csv_btn = ft.OutlinedButton(
+        "Browse",
+        icon=ft.Icons.SAVE_AS,
+        on_click=lambda _: out_csv_picker.save_file(
+            dialog_title="Select Output CSV",
+            file_name="list_coded.csv",
+            allowed_extensions=["csv"],
+        ),
+    )
+    browse_dir_btn = ft.OutlinedButton(
+        "Browse",
+        icon=ft.Icons.FOLDER_OPEN,
+        on_click=lambda _: dir_picker.get_directory_path(
+            dialog_title="Select OCR Source Folder",
+        ),
+    )
 
-        if total_tasks == 0:
-            self.log_signal.emit("🎉 No pending tasks found! All rows are already encoded or skipped.")
-            self.status_signal.emit("🎉 No pending tasks found.", "green")
-            self.finished.emit()
-            return
+    # --- Section 2: Coding & Model Configuration (fixed widths inside wrap=True Rows) ---
+    task_dropdown = ft.Dropdown(
+        label="Coding Part",
+        options=[ft.dropdown.Option(k) for k in PROMPTS.keys()],
+        value="Part 1",
+        width=200,
+    )
+    model_dropdown = ft.Dropdown(
+        label="Model",
+        options=[ft.dropdown.Option(m) for m in MODEL_OPTIONS_PER_PART["Part 1"]],
+        value=DEFAULT_MODEL_PER_PART["Part 1"],
+        width=260,
+    )
+    start_row_input = ft.TextField(
+        label="Start Row (0 or 1 = row 1)",
+        value="0",
+        width=200,
+        dense=True,
+    )
 
-        completed_count = 0
-        success_count = 0
-
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            results = executor.map(process_single_row, todo_tasks)
-            for idx, updated_row, is_ok, msg in results:
-                completed_count += 1
-                if is_ok:
-                    success_count += 1
-                    with open(self.out_csv_p, mode='w', encoding='utf-8', newline='') as f_write:
-                        writer = csv.writer(f_write, quoting=csv.QUOTE_MINIMAL)
-                        writer.writerows(rows)
-
-                self.log_signal.emit(msg)
-                self.progress.emit(completed_count, total_tasks)
-                self.status_signal.emit(f"Processing: {completed_count}/{total_tasks} rows...", "blue")
-
-        self.log_signal.emit("=" * 45)
-        self.log_signal.emit(f"🎉 Batch Processing Complete! Successfully saved {success_count} rows to: {self.out_csv_p}")
-        self.status_signal.emit(f"🎉 Complete! Processed {success_count} rows.", "green")
-        self.finished.emit()
-
-class BatchCodingWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("📰 News Text Quantitative Batch Coding Tool")
-        self.resize(820, 740)
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(12)
-
-        # Header
-        title_lbl = QLabel("📰 News Text Quantitative Batch Coding Tool")
-        title_lbl.setStyleSheet("font-size: 20px; font-weight: bold;")
-        sub_lbl = QLabel("Batch process archival documents across all directory depths (TXT preferred over PDF).")
-        sub_lbl.setStyleSheet("color: #666666;")
-        main_layout.addWidget(title_lbl)
-        main_layout.addWidget(sub_lbl)
-
-        # Notice Banner
-        banner = QFrame()
-        banner.setStyleSheet("""
-            QFrame {
-                background-color: #FFEBEE;
-                border: 2px solid #EF5350;
-                border-radius: 6px;
-                padding: 10px;
-            }
-            QLabel {
-                color: #B71C1C;
-                border: none;
-            }
-        """)
-        banner_layout = QVBoxLayout(banner)
-        banner_title = QLabel("⚠️ BEFORE YOU RUN, PLEASE CONFIRM")
-        banner_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #D32F2F;")
-        banner_text = QLabel(
-            "1. Please ensure that the column structure of your input CSV (list.csv) is perfectly aligned with the selected Part's backfill column specifications! \n"
-            "2. The program relies on specific column indexes (Part 1: P~Y columns, Part 2: AD~AH columns, Part 3: AI/AJ/AM/AN columns, Part 4: AK/AL/AO~AV and AW+ victim details columns).\n"
-            "3. Source file priority reading mechanism: If both .txt and .pdf files exist at the same row number (e.g., 007.txt and 007.pdf), the program will **prioritize reading the .txt file"
-        )
-        banner_text.setWordWrap(True)
-        banner_layout.addWidget(banner_title)
-        banner_layout.addWidget(banner_text)
-        main_layout.addWidget(banner)
-
-        # Group 1: File & Directory Paths
-        path_group = QGroupBox("📁 File & Directory Paths")
-        path_layout = QGridLayout(path_group)
-
-        self.csv_input = QLineEdit("./list.csv")
-        btn_csv = QPushButton("Browse...")
-        btn_csv.clicked.connect(self.pick_csv)
-
-        self.out_csv_input = QLineEdit("./list_coded.csv")
-        btn_out_csv = QPushButton("Browse...")
-        btn_out_csv.clicked.connect(self.pick_out_csv)
-
-        self.ocred_dir_input = QLineEdit("./ocred")
-        btn_dir = QPushButton("Browse...")
-        btn_dir.clicked.connect(self.pick_dir)
-
-        path_layout.addWidget(QLabel("Input CSV Path:"), 0, 0)
-        path_layout.addWidget(self.csv_input, 0, 1)
-        path_layout.addWidget(btn_csv, 0, 2)
-
-        path_layout.addWidget(QLabel("Output CSV Path:"), 1, 0)
-        path_layout.addWidget(self.out_csv_input, 1, 1)
-        path_layout.addWidget(btn_out_csv, 1, 2)
-
-        path_layout.addWidget(QLabel("OCR Source Folder:"), 2, 0)
-        path_layout.addWidget(self.ocred_dir_input, 2, 1)
-        path_layout.addWidget(btn_dir, 2, 2)
-        main_layout.addWidget(path_group)
-
-        # Group 2: Coding & Model Configuration
-        cfg_group = QGroupBox("⚙️ Coding & Model Configuration")
-        cfg_layout = QVBoxLayout(cfg_group)
-
-        row_params = QHBoxLayout()
-        self.task_combo = QComboBox()
-        self.task_combo.addItems(list(PROMPTS.keys()))
-        self.task_combo.currentTextChanged.connect(self.on_part_changed)
-
-        self.model_combo = QComboBox()
-        self.model_combo.addItems(MODEL_OPTIONS_PER_PART["Part 1"])
-        self.model_combo.setCurrentText(DEFAULT_MODEL_PER_PART["Part 1"])
-
-        self.start_row_input = QLineEdit("0")
-        self.start_row_input.setFixedWidth(80)
-        self.start_row_input.setToolTip("0 or 1 = start from row 1")
-
-        row_params.addWidget(QLabel("Coding Part:"))
-        row_params.addWidget(self.task_combo)
-        row_params.addSpacing(15)
-        row_params.addWidget(QLabel("Model:"))
-        row_params.addWidget(self.model_combo)
-        row_params.addSpacing(15)
-        row_params.addWidget(QLabel("Start Row:"))
-        row_params.addWidget(self.start_row_input)
-        row_params.addStretch()
-        cfg_layout.addLayout(row_params)
-
-        row_keys = QHBoxLayout()
-        self.key1_input = QLineEdit()
-        self.key1_input.setEchoMode(QLineEdit.Password)
-        self.key1_input.setPlaceholderText("Required Primary API Key")
-
-        self.key2_input = QLineEdit()
-        self.key2_input.setEchoMode(QLineEdit.Password)
-        self.key2_input.setPlaceholderText("Optional Backup Key (Even Rows)")
-
-        row_keys.addWidget(QLabel("API Key 1:"))
-        row_keys.addWidget(self.key1_input)
-        row_keys.addSpacing(15)
-        row_keys.addWidget(QLabel("API Key 2:"))
-        row_keys.addWidget(self.key2_input)
-        cfg_layout.addLayout(row_keys)
-
-        main_layout.addWidget(cfg_group)
-
-        # Action & Progress
-        self.btn_start = QPushButton("🚀 Start Batch Analysis")
-        self.btn_start.setFixedHeight(40)
-        self.btn_start.setStyleSheet("background-color: #2E7D32; color: white; font-weight: bold; font-size: 14px;")
-        self.btn_start.clicked.connect(self.start_task)
-        main_layout.addWidget(self.btn_start)
-
-        self.pbar = QProgressBar()
-        self.pbar.setValue(0)
-        self.pbar.setVisible(False)
-        main_layout.addWidget(self.pbar)
-
-        self.status_lbl = QLabel("Ready to run.")
-        self.status_lbl.setStyleSheet("font-weight: bold; color: #1976D2;")
-        main_layout.addWidget(self.status_lbl)
-
-        self.log_box = QTextEdit()
-        self.log_box.setReadOnly(True)
-        main_layout.addWidget(self.log_box)
-
-    def on_part_changed(self, part):
+    def on_part_changed(e):
+        part = task_dropdown.value
         allowed = MODEL_OPTIONS_PER_PART.get(part, [])
-        self.model_combo.clear()
-        self.model_combo.addItems(allowed)
-        default_m = DEFAULT_MODEL_PER_PART.get(part, allowed[0] if allowed else "")
-        self.model_combo.setCurrentText(default_m)
+        model_dropdown.options = [ft.dropdown.Option(m) for m in allowed]
+        model_dropdown.value = DEFAULT_MODEL_PER_PART.get(part, allowed[0] if allowed else "")
+        page.update()
 
-    def pick_csv(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Select Input CSV", "", "CSV Files (*.csv);;All Files (*.*)")
-        if p:
-            self.csv_input.setText(clean_path(p))
+    task_dropdown.on_change = on_part_changed
 
-    def pick_out_csv(self):
-        p, _ = QFileDialog.getSaveFileName(self, "Select Output CSV", "list_coded.csv", "CSV Files (*.csv);;All Files (*.*)")
-        if p:
-            self.out_csv_input.setText(clean_path(p))
+    key1_input = ft.TextField(
+        label="API Key 1 (Primary)",
+        password=True,
+        can_reveal_password=True,
+        hint_text="Required Google AI Studio API Key",
+        width=380,
+        dense=True,
+    )
+    key2_input = ft.TextField(
+        label="API Key 2 (Backup / Optional)",
+        password=True,
+        can_reveal_password=True,
+        hint_text="Optional: Alternate requests on even rows",
+        width=380,
+        dense=True,
+    )
 
-    def pick_dir(self):
-        p = QFileDialog.getExistingDirectory(self, "Select OCR Source Folder", "")
-        if p:
-            self.ocred_dir_input.setText(clean_path(p))
+    # --- Section 3: Execution, Progress & Logs ---
+    start_btn = ft.ElevatedButton(
+        "Start Batch Analysis",
+        icon=ft.Icons.PLAY_ARROW,
+        bgcolor=ft.Colors.GREEN_700,
+        color=ft.Colors.WHITE,
+    )
+    stop_btn = ft.OutlinedButton(
+        "Stop",
+        icon=ft.Icons.STOP,
+        disabled=True,
+    )
+    status_text = ft.Text("Ready to run.", size=13, color=ft.Colors.BLUE_700, weight=ft.FontWeight.BOLD)
+    progress_bar = ft.ProgressBar(value=0, visible=False)
+    log_list = ft.ListView(expand=True, spacing=4, auto_scroll=True)
 
-    def set_status(self, text, color):
-        self.status_lbl.setText(text)
-        self.status_lbl.setStyleSheet(f"font-weight: bold; color: {color};")
+    def append_log(message: str):
+        with state["log_lock"]:
+            log_list.controls.append(ft.Text(message, size=12, font_family="monospace", selectable=True))
+            if len(log_list.controls) > 500:
+                log_list.controls.pop(0)
+        page.update()
 
-    def start_task(self):
-        csv_p = clean_path(self.csv_input.text())
-        out_csv_p = clean_path(self.out_csv_input.text())
-        ocred_dir_p = clean_path(self.ocred_dir_input.text())
+    def set_running_ui(is_running: bool):
+        state["running"] = is_running
+        start_btn.disabled = is_running
+        stop_btn.disabled = not is_running
+        csv_input.disabled = is_running
+        out_csv_input.disabled = is_running
+        ocred_dir_input.disabled = is_running
+        browse_csv_btn.disabled = is_running
+        browse_out_csv_btn.disabled = is_running
+        browse_dir_btn.disabled = is_running
+        task_dropdown.disabled = is_running
+        model_dropdown.disabled = is_running
+        start_row_input.disabled = is_running
+        key1_input.disabled = is_running
+        key2_input.disabled = is_running
+        progress_bar.visible = is_running
+        page.update()
 
-        self.csv_input.setText(csv_p)
-        self.out_csv_input.setText(out_csv_p)
-        self.ocred_dir_input.setText(ocred_dir_p)
+    def on_stop_click(e):
+        state["stop_event"].set()
+        stop_btn.disabled = True
+        append_log("[INFO] Stop requested — waiting for active worker(s) to finish...")
+        page.update()
 
-        key1 = self.key1_input.text().strip()
-        key2 = self.key2_input.text().strip()
-        part = self.task_combo.currentText()
-        model_name = self.model_combo.currentText()
+    stop_btn.on_click = on_stop_click
+
+    def on_start_click(e):
+        csv_p = clean_path(csv_input.value or "")
+        out_csv_p = clean_path(out_csv_input.value or "")
+        ocred_dir_p = clean_path(ocred_dir_input.value or "")
+
+        csv_input.value = csv_p
+        out_csv_input.value = out_csv_p
+        ocred_dir_input.value = ocred_dir_p
+
+        key1 = (key1_input.value or "").strip()
+        key2 = (key2_input.value or "").strip()
+        part = task_dropdown.value
+        model_name = model_dropdown.value
 
         try:
-            start_r_val = max(1, int(self.start_row_input.text().strip()))
+            start_r_val = max(1, int((start_row_input.value or "0").strip()))
         except Exception:
             start_r_val = 1
 
         if not key1:
-            self.set_status("❌ Error: Please input API Key 1 before starting.", "red")
+            status_text.value = "❌ Error: Please input API Key 1 before starting."
+            status_text.color = ft.Colors.RED_700
+            page.update()
             return
 
-        if not os.path.exists(csv_p):
-            self.set_status(f"❌ Error: CSV file not found: {csv_p}", "red")
+        if not csv_p or not os.path.exists(csv_p):
+            status_text.value = f"❌ Error: CSV file not found: {csv_p}"
+            status_text.color = ft.Colors.RED_700
+            page.update()
             return
 
-        self.btn_start.setEnabled(False)
-        self.log_box.clear()
-        self.pbar.setValue(0)
-        self.pbar.setVisible(True)
-        self.set_status("Running batch analysis...", "#1976D2")
+        with state["log_lock"]:
+            log_list.controls.clear()
+        progress_bar.value = 0
+        state["stop_event"].clear()
+        set_running_ui(True)
+        status_text.value = "Running batch analysis..."
+        status_text.color = ft.Colors.BLUE_700
+        page.update()
 
-        self.worker = BatchCodingWorker(
-            csv_p, out_csv_p, ocred_dir_p, part, model_name, start_r_val, key1, key2
+        def worker():
+            try:
+                append_log(f"🚀 Initializing Batch Process for [{part}] using [{model_name}]...")
+                append_log(f"📖 CSV Input: {csv_p}")
+                append_log(f"💾 CSV Output: {out_csv_p}")
+                append_log(f"📂 Source Folder: {ocred_dir_p} (TXT Preferred over PDF, All Depths)")
+                append_log(f"📍 Start Row Index: {start_r_val}")
+
+                source_csv = out_csv_p if os.path.exists(out_csv_p) else csv_p
+                try:
+                    with open(source_csv, mode="r", encoding="utf-8", newline="") as f:
+                        rows = list(csv.reader(f))
+                except UnicodeDecodeError:
+                    with open(source_csv, mode="r", encoding="gbk", errors="ignore", newline="") as f:
+                        rows = list(csv.reader(f))
+
+                todo_tasks = []
+                for idx, row in enumerate(rows, start=1):
+                    if idx < start_r_val or idx == 1 or len(row) < 4:
+                        continue
+
+                    e_col_val = row[4].strip() if len(row) > 4 else ""
+
+                    check_val = ""
+                    if part == "Part 1":
+                        check_val = row[15].strip() if len(row) > 15 else ""
+                    elif part == "Part 2":
+                        check_val = row[29].strip() if len(row) > 29 else ""
+                    elif part == "Part 3":
+                        check_val = row[34].strip() if len(row) > 34 else ""
+                    elif part == "Part 4":
+                        check_val = row[40].strip() if len(row) > 40 else ""
+
+                    if e_col_val and check_val == "":
+                        todo_tasks.append(
+                            (idx, row, part, model_name, ocred_dir_p, key1, key2, state["stop_event"])
+                        )
+
+                total_tasks = len(todo_tasks)
+                append_log(f"⚡️ [Task Filtering] Found {total_tasks} rows requiring coding analysis.")
+
+                if total_tasks == 0:
+                    append_log("🎉 No pending tasks found! All rows are already encoded or skipped.")
+                    status_text.value = "🎉 No pending tasks found."
+                    status_text.color = ft.Colors.GREEN_700
+                    return
+
+                completed_count = 0
+                success_count = 0
+
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    results = executor.map(process_single_row, todo_tasks)
+                    for idx, updated_row, is_ok, msg in results:
+                        completed_count += 1
+                        if is_ok:
+                            success_count += 1
+                            with open(out_csv_p, mode="w", encoding="utf-8", newline="") as f_write:
+                                writer = csv.writer(f_write, quoting=csv.QUOTE_MINIMAL)
+                                writer.writerows(rows)
+
+                        progress_bar.value = completed_count / total_tasks
+                        status_text.value = f"Processing: {completed_count}/{total_tasks} rows..."
+                        status_text.color = ft.Colors.BLUE_700
+                        append_log(msg)
+
+                append_log("=" * 45)
+                if state["stop_event"].is_set():
+                    append_log(f"⏹️ Batch Processing Stopped. Saved {success_count} rows to: {out_csv_p}")
+                    status_text.value = f"Stopped. Processed {success_count} rows."
+                    status_text.color = ft.Colors.ORANGE_700
+                else:
+                    append_log(
+                        f"🎉 Batch Processing Complete! Successfully saved {success_count} rows to: {out_csv_p}"
+                    )
+                    status_text.value = f"🎉 Complete! Processed {success_count} rows."
+                    status_text.color = ft.Colors.GREEN_700
+            except Exception as ex:
+                status_text.value = f"❌ Error: {ex}"
+                status_text.color = ft.Colors.RED_700
+                append_log(f"❌ Batch error: {ex}")
+            finally:
+                set_running_ui(False)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    start_btn.on_click = on_start_click
+
+    # --- Assemble Layout ---
+    notice_banner = ft.Card(
+        content=ft.Container(
+            bgcolor=ft.Colors.RED_50,
+            border=ft.border.all(1.5, ft.Colors.RED_400),
+            border_radius=8,
+            padding=14,
+            content=ft.Column(
+                [
+                    ft.Text(
+                        "⚠️ BEFORE YOU RUN, PLEASE CONFIRM",
+                        size=15,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.RED_800,
+                    ),
+                    ft.Text(
+                        "1. Please ensure that the column structure of your input CSV (list.csv) is perfectly aligned with the selected Part's backfill column specifications!\n"
+                        "2. The program relies on specific column indexes (Part 1: P~Y columns, Part 2: AD~AH columns, Part 3: AI/AJ/AM/AN columns, Part 4: AK/AL/AO~AV and AW+ victim details columns).\n"
+                        "3. Source file priority reading mechanism: If both .txt and .pdf files exist at the same row number (e.g., 007.txt and 007.pdf), the program will prioritize reading the .txt file.",
+                        size=12,
+                        color=ft.Colors.RED_900,
+                    ),
+                ],
+                spacing=6,
+            ),
         )
-        self.worker.progress.connect(self.update_progress)
-        self.worker.log_signal.connect(self.log_box.append)
-        self.worker.status_signal.connect(self.set_status)
-        self.worker.finished.connect(self.on_finished)
-        self.worker.start()
+    )
 
-    def update_progress(self, curr, total):
-        self.pbar.setMaximum(total)
-        self.pbar.setValue(curr)
+    page.add(
+        ft.Text("MMIWG News Text Quantitative Batch Coder", size=22, weight=ft.FontWeight.BOLD),
+        ft.Text(
+            "Batch process archival documents across all directory depths (TXT preferred over PDF).",
+            size=13,
+            color=ft.Colors.GREY_700,
+        ),
+        notice_banner,
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("1. File & Directory Paths", size=15, weight=ft.FontWeight.BOLD),
+                        ft.Row([csv_input, browse_csv_btn]),
+                        ft.Row([out_csv_input, browse_out_csv_btn]),
+                        ft.Row([ocred_dir_input, browse_dir_btn]),
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("2. Coding & Model Configuration", size=15, weight=ft.FontWeight.BOLD),
+                        ft.Row(
+                            [task_dropdown, model_dropdown, start_row_input],
+                            spacing=14,
+                            wrap=True,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Row(
+                            [key1_input, key2_input],
+                            spacing=14,
+                            wrap=True,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
+        ft.Card(
+            content=ft.Container(
+                padding=15,
+                content=ft.Column(
+                    [
+                        ft.Text("3. Batch Execution & Live Progress", size=15, weight=ft.FontWeight.BOLD),
+                        ft.Row([start_btn, stop_btn], spacing=12),
+                        status_text,
+                        progress_bar,
+                        ft.Container(
+                            content=log_list,
+                            height=240,
+                            border=ft.border.all(1, ft.Colors.GREY_300),
+                            border_radius=6,
+                            padding=8,
+                            bgcolor=ft.Colors.GREY_50,
+                        ),
+                    ],
+                    spacing=10,
+                ),
+            )
+        ),
+    )
 
-    def on_finished(self):
-        self.btn_start.setEnabled(True)
-        self.pbar.setVisible(False)
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = BatchCodingWindow()
-    window.show()
-    sys.exit(app.exec())
+    ft.app(target=main)
