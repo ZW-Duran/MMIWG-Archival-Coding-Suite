@@ -14,9 +14,10 @@ import json
 import os
 import re
 import threading
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import flet as ft
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from core.prompts import BATCH_PROMPTS, WEB_PROMPTS
 
@@ -122,13 +123,12 @@ def run_single_document_analysis(text, selected_prompt, model_name, api_key_1, a
         key_toggle_counter += 1
 
     try:
-        genai.configure(api_key=current_api_key)
-        model = genai.GenerativeModel(model_name)
-
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(temperature=0.0),
-        )
+        with genai.Client(api_key=current_api_key) as client:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.0),
+            )
         return response.text, key_label, None
     except Exception as e:
         return None, key_label, str(e)

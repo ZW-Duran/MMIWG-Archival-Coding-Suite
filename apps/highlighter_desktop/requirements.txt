@@ -1,6 +1,6 @@
 flet==0.28.3
-pymupdf>=1.24.0
-spacy>=3.7.0
-requests>=2.31.0
+pymupdf>=1.25.0
+spacy>=3.8.0
+requests>=2.32.0
 pyinstaller>=6.10.0
-Pillow>=10.0.0
+Pillow>=11.0.0

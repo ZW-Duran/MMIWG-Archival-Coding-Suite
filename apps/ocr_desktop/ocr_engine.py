@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import threading
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 
 try:
     from rapidocr_onnxruntime import RapidOCR  # type: ignore

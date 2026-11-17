@@ -17,9 +17,10 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import flet as ft
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from core.pdf_utils import clean_path, read_source_file_content
 from core.prompts import BATCH_PROMPTS as PROMPTS
@@ -81,13 +82,12 @@ def analyze_text_with_gemini(
 
     raw_response = ""
     try:
-        genai.configure(api_key=current_api_key)
-        model = genai.GenerativeModel(model_name)
-
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(temperature=0.0),
-        )
+        with genai.Client(api_key=current_api_key) as client:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.0),
+            )
 
         raw_response = response.text.strip() if response and response.text else ""
         if not raw_response:

@@ -6,7 +6,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import streamlit as st
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import spacy
 import os
 import tempfile

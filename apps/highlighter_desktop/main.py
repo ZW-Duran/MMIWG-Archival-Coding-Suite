@@ -18,7 +18,7 @@ import subprocess
 import tempfile
 import threading
 import time
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 import flet as ft
 
 from core.ner_highlighter import highlight_pdf_entities
