@@ -1,4 +1,4 @@
-flet==0.28.3
+flet>=1.0.0
 requests>=2.32.0
 pyinstaller>=6.10.0
 Pillow>=11.0.0

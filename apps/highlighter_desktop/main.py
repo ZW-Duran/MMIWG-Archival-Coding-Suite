@@ -10,7 +10,6 @@ if not getattr(sys, "frozen", False):
     if _REPO_ROOT not in sys.path:
         sys.path.insert(0, _REPO_ROOT)
 
-import base64
 import os
 import platform
 import shutil
@@ -92,14 +91,14 @@ def main(page: ft.Page):
         selectable=True,
     )
     model_progress = ft.ProgressBar(value=0, visible=False, width=400)
-    download_btn = ft.ElevatedButton(
-        "Download & Load Model",
+    download_btn = ft.Button(
+        content="Download & Load Model",
         icon=ft.Icons.DOWNLOAD,
         bgcolor=ft.Colors.BLUE_700,
         color=ft.Colors.WHITE,
     )
     change_dir_btn = ft.OutlinedButton(
-        "Change Folder",
+        content="Change Folder",
         icon=ft.Icons.FOLDER_OPEN,
     )
 
@@ -109,36 +108,37 @@ def main(page: ft.Page):
         if state["loaded_model_name"] == model_name and state["nlp"] is not None:
             model_status_text.value = f"Ready in memory ({model_name})"
             model_status_text.color = ft.Colors.GREEN_700
-            download_btn.text = "Reload Model"
+            download_btn.content = "Reload Model"
         elif installed:
             model_status_text.value = f"Installed locally ({model_name}) — click to load"
             model_status_text.color = ft.Colors.BLUE_700
-            download_btn.text = "Load Model"
+            download_btn.content = "Load Model"
         else:
             model_status_text.value = f"Not downloaded ({model_name})"
             model_status_text.color = ft.Colors.ORANGE_700
-            download_btn.text = "Download & Load Model"
+            download_btn.content = "Download & Load Model"
         models_dir_text.value = f"Model Folder: {state['models_dir']}"
         page.update()
 
     def on_model_dropdown_change(e):
         refresh_model_status()
 
-    model_dropdown.on_change = on_model_dropdown_change
+    model_dropdown.on_select = on_model_dropdown_change
 
-    def on_folder_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            state["models_dir"] = Path(e.path)
+    folder_picker = ft.FilePicker()
+
+    async def on_change_dir(e):
+        path = await folder_picker.get_directory_path(
+            dialog_title="Select Folder to Store spaCy Models"
+        )
+        if path:
+            state["models_dir"] = Path(path)
             save_models_dir(state["models_dir"])
             state["nlp"] = None
             state["loaded_model_name"] = None
             refresh_model_status()
 
-    folder_picker = ft.FilePicker(on_result=on_folder_picked)
-    page.overlay.append(folder_picker)
-    change_dir_btn.on_click = lambda _: folder_picker.get_directory_path(
-        dialog_title="Select Folder to Store spaCy Models"
-    )
+    change_dir_btn.on_click = on_change_dir
 
     def on_download_or_load(e):
         model_name = model_dropdown.value
@@ -185,7 +185,7 @@ def main(page: ft.Page):
                 model_progress.visible = False
                 refresh_model_status()
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
     download_btn.on_click = on_download_or_load
 
@@ -228,35 +228,35 @@ def main(page: ft.Page):
         state["rules"].append({"label": "ORG", "color": "(0, 0, 1)"})
         rebuild_rules_ui()
 
-    add_rule_btn = ft.TextButton("Add Highlight Rule", icon=ft.Icons.ADD, on_click=add_rule)
+    add_rule_btn = ft.TextButton(content="Add Highlight Rule", icon=ft.Icons.ADD, on_click=add_rule)
 
     # --- PDF Selection & Processing ---
     selected_pdf_text = ft.Text("No PDF selected.", size=13, color=ft.Colors.GREY_700)
     run_status_text = ft.Text("", size=13)
     run_progress = ft.ProgressBar(value=0, visible=False, width=450)
 
-    def on_pdf_picked(e: ft.FilePickerResultEvent):
-        if e.files:
-            state["pdf_path"] = e.files[0].path
-            selected_pdf_text.value = f"Selected: {e.files[0].name} ({state['pdf_path']})"
-            selected_pdf_text.color = ft.Colors.BLACK87
-            page.update()
+    pdf_picker = ft.FilePicker()
 
-    pdf_picker = ft.FilePicker(on_result=on_pdf_picked)
-    page.overlay.append(pdf_picker)
-
-    select_pdf_btn = ft.ElevatedButton(
-        "Select PDF",
-        icon=ft.Icons.UPLOAD_FILE,
-        on_click=lambda _: pdf_picker.pick_files(
+    async def on_select_pdf(e):
+        files = await pdf_picker.pick_files(
             allow_multiple=False,
             allowed_extensions=["pdf"],
             dialog_title="Select PDF to Highlight",
-        ),
+        )
+        if files:
+            state["pdf_path"] = files[0].path
+            selected_pdf_text.value = f"Selected: {files[0].name} ({state['pdf_path']})"
+            selected_pdf_text.color = ft.Colors.BLACK87
+            page.update()
+
+    select_pdf_btn = ft.Button(
+        content="Select PDF",
+        icon=ft.Icons.UPLOAD_FILE,
+        on_click=on_select_pdf,
     )
 
-    run_btn = ft.ElevatedButton(
-        "Run NER Highlighting",
+    run_btn = ft.Button(
+        content="Run NER Highlighting",
         icon=ft.Icons.AUTO_FIX_HIGH,
         bgcolor=ft.Colors.GREEN_700,
         color=ft.Colors.WHITE,
@@ -285,48 +285,50 @@ def main(page: ft.Page):
         for key in METADATA_KEYS
     }
 
-    def copy_metadata_tsv(e):
+    async def copy_metadata_tsv(e):
         tsv = "\t".join((meta_fields[k].value or "").replace("\t", " ") for k in METADATA_KEYS)
-        page.set_clipboard(tsv)
+        await ft.Clipboard().set(tsv)
         run_status_text.value = "All 11 metadata columns copied to clipboard (TSV for Google Sheets / Excel)."
         run_status_text.color = ft.Colors.GREEN_700
         page.update()
 
     copy_meta_btn = ft.OutlinedButton(
-        "Copy Metadata (TSV)",
+        content="Copy Metadata (TSV)",
         icon=ft.Icons.COPY,
         on_click=copy_metadata_tsv,
     )
 
-    def on_save_picked(e: ft.FilePickerResultEvent):
-        if e.path and state["output_pdf_path"] and os.path.exists(state["output_pdf_path"]):
-            shutil.copyfile(state["output_pdf_path"], e.path)
-            run_status_text.value = f"Saved highlighted PDF to: {e.path}"
-            run_status_text.color = ft.Colors.GREEN_700
-            page.update()
+    save_picker = ft.FilePicker()
 
-    save_picker = ft.FilePicker(on_result=on_save_picked)
-    page.overlay.append(save_picker)
-
-    save_pdf_btn = ft.ElevatedButton(
-        "Save Highlighted PDF",
-        icon=ft.Icons.SAVE,
-        disabled=True,
-        on_click=lambda _: save_picker.save_file(
+    async def on_save_pdf(e):
+        if not state["output_pdf_path"] or not os.path.exists(state["output_pdf_path"]):
+            return
+        save_path = await save_picker.save_file(
             dialog_title="Save Highlighted PDF",
             file_name=f"highlighted_{Path(state['pdf_path']).name}" if state["pdf_path"] else "highlighted.pdf",
             allowed_extensions=["pdf"],
-        ),
+        )
+        if save_path:
+            shutil.copyfile(state["output_pdf_path"], save_path)
+            run_status_text.value = f"Saved highlighted PDF to: {save_path}"
+            run_status_text.color = ft.Colors.GREEN_700
+            page.update()
+
+    save_pdf_btn = ft.Button(
+        content="Save Highlighted PDF",
+        icon=ft.Icons.SAVE,
+        disabled=True,
+        on_click=on_save_pdf,
     )
 
     open_external_btn = ft.OutlinedButton(
-        "Open in Default PDF Viewer",
+        content="Open in Default PDF Viewer",
         icon=ft.Icons.OPEN_IN_NEW,
         disabled=True,
         on_click=lambda _: open_file_externally(state["output_pdf_path"]) if state["output_pdf_path"] else None,
     )
 
-    preview_image = ft.Image(src_base64="", visible=False, fit=ft.ImageFit.CONTAIN, width=820)
+    preview_image = ft.Image(src=b"", visible=False, fit=ft.BoxFit.CONTAIN, width=820)
     page_indicator = ft.Text("", size=13)
     prev_page_btn = ft.IconButton(icon=ft.Icons.CHEVRON_LEFT, disabled=True)
     next_page_btn = ft.IconButton(icon=ft.Icons.CHEVRON_RIGHT, disabled=True)
@@ -340,7 +342,7 @@ def main(page: ft.Page):
             prev_page_btn.disabled = True
             next_page_btn.disabled = True
         else:
-            preview_image.src_base64 = pages[idx]
+            preview_image.src = pages[idx]
             preview_image.visible = True
             page_indicator.value = f"Page {idx + 1} of {len(pages)}"
             prev_page_btn.disabled = idx <= 0
@@ -405,7 +407,7 @@ def main(page: ft.Page):
                 rendered_pages = []
                 for p in doc:
                     pix = p.get_pixmap(dpi=150)
-                    rendered_pages.append(base64.b64encode(pix.tobytes("png")).decode("utf-8"))
+                    rendered_pages.append(pix.tobytes("png"))
                 doc.close()
 
                 state["output_pdf_path"] = str(out_path)
@@ -429,7 +431,7 @@ def main(page: ft.Page):
                 run_progress.visible = False
                 page.update()
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
     run_btn.on_click = on_run_highlighting
 
@@ -441,8 +443,8 @@ def main(page: ft.Page):
         ft.Row([prev_page_btn, page_indicator, next_page_btn], alignment=ft.MainAxisAlignment.CENTER),
         ft.Container(
             content=preview_image,
-            alignment=ft.alignment.center,
-            border=ft.border.all(1, ft.Colors.GREY_300),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border.all(1, ft.Colors.GREY_300),
             border_radius=6,
             padding=8,
         ),
@@ -507,4 +509,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

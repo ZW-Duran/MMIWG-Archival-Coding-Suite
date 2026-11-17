@@ -274,50 +274,52 @@ def main(page: ft.Page):
         dense=True,
     )
 
-    def on_csv_picked(e: ft.FilePickerResultEvent):
-        if e.files and len(e.files) > 0 and e.files[0].path:
-            csv_input.value = clean_path(e.files[0].path)
-            page.update()
+    csv_picker = ft.FilePicker()
+    out_csv_picker = ft.FilePicker()
+    dir_picker = ft.FilePicker()
 
-    def on_out_csv_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            out_csv_input.value = clean_path(e.path)
-            page.update()
-
-    def on_dir_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            ocred_dir_input.value = clean_path(e.path)
-            page.update()
-
-    csv_picker = ft.FilePicker(on_result=on_csv_picked)
-    out_csv_picker = ft.FilePicker(on_result=on_out_csv_picked)
-    dir_picker = ft.FilePicker(on_result=on_dir_picked)
-    page.overlay.extend([csv_picker, out_csv_picker, dir_picker])
-
-    browse_csv_btn = ft.OutlinedButton(
-        "Browse",
-        icon=ft.Icons.FILE_OPEN,
-        on_click=lambda _: csv_picker.pick_files(
+    async def on_browse_csv(e):
+        files = await csv_picker.pick_files(
             dialog_title="Select Input CSV",
             allow_multiple=False,
             allowed_extensions=["csv"],
-        ),
-    )
-    browse_out_csv_btn = ft.OutlinedButton(
-        "Browse",
-        icon=ft.Icons.SAVE_AS,
-        on_click=lambda _: out_csv_picker.save_file(
+        )
+        if files and files[0].path:
+            csv_input.value = clean_path(files[0].path)
+            page.update()
+
+    async def on_browse_out_csv(e):
+        path = await out_csv_picker.save_file(
             dialog_title="Select Output CSV",
             file_name="list_coded.csv",
             allowed_extensions=["csv"],
-        ),
+        )
+        if path:
+            out_csv_input.value = clean_path(path)
+            page.update()
+
+    async def on_browse_dir(e):
+        path = await dir_picker.get_directory_path(
+            dialog_title="Select OCR Source Folder",
+        )
+        if path:
+            ocred_dir_input.value = clean_path(path)
+            page.update()
+
+    browse_csv_btn = ft.OutlinedButton(
+        content="Browse",
+        icon=ft.Icons.FILE_OPEN,
+        on_click=on_browse_csv,
+    )
+    browse_out_csv_btn = ft.OutlinedButton(
+        content="Browse",
+        icon=ft.Icons.SAVE_AS,
+        on_click=on_browse_out_csv,
     )
     browse_dir_btn = ft.OutlinedButton(
-        "Browse",
+        content="Browse",
         icon=ft.Icons.FOLDER_OPEN,
-        on_click=lambda _: dir_picker.get_directory_path(
-            dialog_title="Select OCR Source Folder",
-        ),
+        on_click=on_browse_dir,
     )
 
     # --- Section 2: Coding & Model Configuration (fixed widths inside wrap=True Rows) ---
@@ -347,7 +349,7 @@ def main(page: ft.Page):
         model_dropdown.value = DEFAULT_MODEL_PER_PART.get(part, allowed[0] if allowed else "")
         page.update()
 
-    task_dropdown.on_change = on_part_changed
+    task_dropdown.on_select = on_part_changed
 
     key1_input = ft.TextField(
         label="API Key 1 (Primary)",
@@ -367,14 +369,14 @@ def main(page: ft.Page):
     )
 
     # --- Section 3: Execution, Progress & Logs ---
-    start_btn = ft.ElevatedButton(
-        "Start Batch Analysis",
+    start_btn = ft.Button(
+        content="Start Batch Analysis",
         icon=ft.Icons.PLAY_ARROW,
         bgcolor=ft.Colors.GREEN_700,
         color=ft.Colors.WHITE,
     )
     stop_btn = ft.OutlinedButton(
-        "Stop",
+        content="Stop",
         icon=ft.Icons.STOP,
         disabled=True,
     )
@@ -538,7 +540,7 @@ def main(page: ft.Page):
             finally:
                 set_running_ui(False)
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
     start_btn.on_click = on_start_click
 
@@ -546,7 +548,7 @@ def main(page: ft.Page):
     notice_banner = ft.Card(
         content=ft.Container(
             bgcolor=ft.Colors.RED_50,
-            border=ft.border.all(1.5, ft.Colors.RED_400),
+            border=ft.Border.all(1.5, ft.Colors.RED_400),
             border_radius=8,
             padding=14,
             content=ft.Column(
@@ -627,7 +629,7 @@ def main(page: ft.Page):
                         ft.Container(
                             content=log_list,
                             height=240,
-                            border=ft.border.all(1, ft.Colors.GREY_300),
+                            border=ft.Border.all(1, ft.Colors.GREY_300),
                             border_radius=6,
                             padding=8,
                             bgcolor=ft.Colors.GREY_50,
@@ -641,4 +643,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

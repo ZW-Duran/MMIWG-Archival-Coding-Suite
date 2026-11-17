@@ -102,22 +102,22 @@ flowchart LR
 ├── examples/                     # Sample anonymized newspaper PDFs & demo CSVs for testing
 ├── legacy/                       # Archived scripts kept for historical reference
 ├── docs/                         # End-User Guide, screenshots, and visual documentation assets
-└── .github/workflows/            # CI/CD build workflows (flet pack 0.28.3)
+└── .github/workflows/            # CI/CD build workflows (flet pack 1.0+)
 ```
 
 ---
 
 ## Part 1: Applications Architecture & Build Targets (`apps/`)
 
-All applications share the canonical codebook and PDF/NER utilities in `core/`, and all five desktop applications use a unified **Flet (`0.28.3`)** UI with matching icons in `assets/icons/`. They are compiled into standalone `.exe` (Windows) and `.app` (macOS) binaries via [`.github/workflows/build_apps.yml`](./.github/workflows/build_apps.yml); end-users do not need Python or `pip` to run them.
+All applications share the canonical codebook and PDF/NER utilities in `core/`, and all five desktop applications use a unified **Flet (`1.0+`)** UI with matching icons in `assets/icons/`. They are compiled into standalone `.exe` (Windows) and `.app` (macOS) binaries via [`.github/workflows/build_apps.yml`](./.github/workflows/build_apps.yml); end-users do not need Python or `pip` to run them.
 
 | Module | Framework | Entry Point | Release Binary | Technical Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `apps/drive_downloader` | Flet (`0.28.3`) | `main.py` | `DriveDownloader` | Streams public Google Drive links from CSV into zero-padded `001.pdf` files. |
-| `apps/ocr_desktop` | Flet (`0.28.3`) | `main.py` | `OCRProcessor` | Hybrid OCR engine (`ocr_engine.py`): ships zero-dependency `RapidOCR` + `PyMuPDF` fallback for machines without Homebrew/winget, and auto-upgrades to `Ghostscript + OCRmyPDF` or `Tesseract` when installed (with one-click `brew`/`winget` installer). |
-| `apps/batch_coder` | Flet (`0.28.3`) | `main.py` | `BatchCoder` | Multi-threaded Gemini coder using `BATCH_PROMPTS`; supports dual-key rotation, `.txt`-over-`.pdf` priority, and incremental CSV resume. |
-| `apps/single_coder_desktop` | Flet (`0.28.3`) | `main.py` | `SingleCoder` | Fast-track single-article coder using `WEB_PROMPTS` (or `BATCH_PROMPTS`) with live verbatim quote verification against source text and JSON export. |
-| `apps/highlighter_desktop` | Flet (`0.28.3`) | `main.py` | `Highlighter` | On-demand `en_core_web_sm` / `md` / `lg` wheel downloader (`model_manager.py`, no `pip` required in frozen binaries); stores models in `~/Documents/MMIWG_Models` (user-configurable) and extracts 11-column NewsBank metadata. |
+| `apps/drive_downloader` | Flet (`1.0+`) | `main.py` | `DriveDownloader` | Streams public Google Drive links from CSV into zero-padded `001.pdf` files. |
+| `apps/ocr_desktop` | Flet (`1.0+`) | `main.py` | `OCRProcessor` | Hybrid OCR engine (`ocr_engine.py`): ships zero-dependency `RapidOCR` + `PyMuPDF` fallback for machines without Homebrew/winget, and auto-upgrades to `Ghostscript + OCRmyPDF` or `Tesseract` when installed (with one-click `brew`/`winget` installer). |
+| `apps/batch_coder` | Flet (`1.0+`) | `main.py` | `BatchCoder` | Multi-threaded Gemini coder using `BATCH_PROMPTS`; supports dual-key rotation, `.txt`-over-`.pdf` priority, and incremental CSV resume. |
+| `apps/single_coder_desktop` | Flet (`1.0+`) | `main.py` | `SingleCoder` | Fast-track single-article coder using `WEB_PROMPTS` (or `BATCH_PROMPTS`) with live verbatim quote verification against source text and JSON export. |
+| `apps/highlighter_desktop` | Flet (`1.0+`) | `main.py` | `Highlighter` | On-demand `en_core_web_sm` / `md` / `lg` wheel downloader (`model_manager.py`, no `pip` required in frozen binaries); stores models in `~/Documents/MMIWG_Models` (user-configurable) and extracts 11-column NewsBank metadata. |
 | `apps/reader_web` | Streamlit | `semantic_highlighter.py` | *Source / ZIP only* | Retained for `en_core_web_trf` (PyTorch + ~500 MB weights, too large for `.exe`/`.app` bundling). |
 
 ### Running Desktop Apps from Source (Developers)

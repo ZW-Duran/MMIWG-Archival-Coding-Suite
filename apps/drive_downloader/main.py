@@ -107,35 +107,36 @@ def main(page: ft.Page):
         dense=True,
     )
 
-    def on_csv_picked(e: ft.FilePickerResultEvent):
-        if e.files and len(e.files) > 0 and e.files[0].path:
-            csv_input.value = clean_path(e.files[0].path)
-            page.update()
+    csv_picker = ft.FilePicker()
+    out_picker = ft.FilePicker()
 
-    def on_out_dir_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            out_input.value = clean_path(e.path)
-            page.update()
-
-    csv_picker = ft.FilePicker(on_result=on_csv_picked)
-    out_picker = ft.FilePicker(on_result=on_out_dir_picked)
-    page.overlay.extend([csv_picker, out_picker])
-
-    browse_csv_btn = ft.OutlinedButton(
-        "Browse",
-        icon=ft.Icons.FILE_OPEN,
-        on_click=lambda _: csv_picker.pick_files(
+    async def on_browse_csv(e):
+        files = await csv_picker.pick_files(
             dialog_title="Select CSV File",
             allow_multiple=False,
             allowed_extensions=["csv"],
-        ),
+        )
+        if files and files[0].path:
+            csv_input.value = clean_path(files[0].path)
+            page.update()
+
+    async def on_browse_out(e):
+        path = await out_picker.get_directory_path(
+            dialog_title="Select Output Directory",
+        )
+        if path:
+            out_input.value = clean_path(path)
+            page.update()
+
+    browse_csv_btn = ft.OutlinedButton(
+        content="Browse",
+        icon=ft.Icons.FILE_OPEN,
+        on_click=on_browse_csv,
     )
     browse_out_btn = ft.OutlinedButton(
-        "Browse",
+        content="Browse",
         icon=ft.Icons.FOLDER_OPEN,
-        on_click=lambda _: out_picker.get_directory_path(
-            dialog_title="Select Output Directory",
-        ),
+        on_click=on_browse_out,
     )
 
     # --- Section 2: Column & Row Parameters (fixed widths inside wrap=True Row) ---
@@ -162,14 +163,14 @@ def main(page: ft.Page):
     )
 
     # --- Section 3: Execution, Counters & Live Log ---
-    start_btn = ft.ElevatedButton(
-        "Start Batch Download",
+    start_btn = ft.Button(
+        content="Start Batch Download",
         icon=ft.Icons.DOWNLOAD,
         bgcolor=ft.Colors.GREEN_700,
         color=ft.Colors.WHITE,
     )
     stop_btn = ft.OutlinedButton(
-        "Stop",
+        content="Stop",
         icon=ft.Icons.STOP,
         disabled=True,
     )
@@ -344,7 +345,7 @@ def main(page: ft.Page):
             finally:
                 set_running_ui(False)
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
     start_btn.on_click = on_start_click
 
@@ -399,7 +400,7 @@ def main(page: ft.Page):
                         ft.Container(
                             content=log_list,
                             height=240,
-                            border=ft.border.all(1, ft.Colors.GREY_300),
+                            border=ft.Border.all(1, ft.Colors.GREY_300),
                             border_radius=6,
                             padding=8,
                             bgcolor=ft.Colors.GREY_50,
@@ -413,4 +414,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

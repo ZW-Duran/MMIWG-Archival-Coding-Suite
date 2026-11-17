@@ -271,43 +271,45 @@ def main(page: ft.Page):
         except Exception:
             evidence_card.visible = False
 
-    toggle_log_btn = ft.ElevatedButton("Show Raw Output Log", icon=ft.Icons.SUBTITLES)
+    toggle_log_btn = ft.Button(content="Show Raw Output Log", icon=ft.Icons.SUBTITLES)
 
     def on_toggle_raw_log(e):
         raw_log_field.visible = not raw_log_field.visible
-        toggle_log_btn.text = "Hide Raw Output Log" if raw_log_field.visible else "Show Raw Output Log"
+        toggle_log_btn.content = "Hide Raw Output Log" if raw_log_field.visible else "Show Raw Output Log"
         page.update()
 
     toggle_log_btn.on_click = on_toggle_raw_log
 
-    def on_copy_json(e):
+    async def on_copy_json(e):
         if output_code_field.value:
-            page.set_clipboard(output_code_field.value)
+            await ft.Clipboard().set(output_code_field.value)
             status_text.value = "Structured JSON copied to clipboard."
             status_text.color = ft.Colors.GREEN_700
             page.update()
 
-    copy_json_btn = ft.OutlinedButton("Copy JSON", icon=ft.Icons.COPY, on_click=on_copy_json)
+    copy_json_btn = ft.OutlinedButton(content="Copy JSON", icon=ft.Icons.COPY, on_click=on_copy_json)
 
-    def on_save_json_picked(e: ft.FilePickerResultEvent):
-        if e.path and output_code_field.value:
-            with open(e.path, "w", encoding="utf-8") as f:
-                f.write(output_code_field.value)
-            status_text.value = f"Saved JSON results to: {e.path}"
-            status_text.color = ft.Colors.GREEN_700
-            page.update()
+    save_json_picker = ft.FilePicker()
 
-    save_json_picker = ft.FilePicker(on_result=on_save_json_picked)
-    page.overlay.append(save_json_picker)
-
-    save_json_btn = ft.OutlinedButton(
-        "Save JSON",
-        icon=ft.Icons.SAVE,
-        on_click=lambda _: save_json_picker.save_file(
+    async def on_save_json(e):
+        if not output_code_field.value:
+            return
+        save_path = await save_json_picker.save_file(
             dialog_title="Save Coding Output JSON",
             file_name="coding_output.json",
             allowed_extensions=["json"],
-        ),
+        )
+        if save_path:
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write(output_code_field.value)
+            status_text.value = f"Saved JSON results to: {save_path}"
+            status_text.color = ft.Colors.GREEN_700
+            page.update()
+
+    save_json_btn = ft.OutlinedButton(
+        content="Save JSON",
+        icon=ft.Icons.SAVE,
+        on_click=on_save_json,
     )
 
     def on_task_changed(e):
@@ -317,12 +319,15 @@ def main(page: ft.Page):
         model_dropdown.value = DEFAULT_MODEL_PER_PART.get(part, allowed_models[0] if allowed_models else "")
         page.update()
 
-    task_dropdown.on_change = on_task_changed
+    task_dropdown.on_select = on_task_changed
 
     # --- FilePicker (PDF Extraction) ---
-    def on_file_picked(e: ft.FilePickerResultEvent):
-        if e.files and len(e.files) > 0:
-            picked_path = e.files[0].path
+    file_picker = ft.FilePicker()
+
+    async def on_pick_pdf(e):
+        files = await file_picker.pick_files(allow_multiple=False, allowed_extensions=["pdf"])
+        if files and len(files) > 0:
+            picked_path = files[0].path
             if picked_path and picked_path.lower().endswith(".pdf"):
                 try:
                     doc = fitz.open(picked_path)
@@ -345,13 +350,10 @@ def main(page: ft.Page):
                     status_text.color = ft.Colors.RED_700
                 page.update()
 
-    file_picker = ft.FilePicker(on_result=on_file_picked)
-    page.overlay.append(file_picker)
-
-    btn_pick_pdf = ft.ElevatedButton(
-        "Upload/Select Local PDF File",
+    btn_pick_pdf = ft.Button(
+        content="Upload/Select Local PDF File",
         icon=ft.Icons.PICTURE_AS_PDF,
-        on_click=lambda _: file_picker.pick_files(allow_multiple=False, allowed_extensions=["pdf"]),
+        on_click=on_pick_pdf,
     )
 
     def on_start_analysis(e):
@@ -404,13 +406,14 @@ def main(page: ft.Page):
                 btn_run.disabled = False
                 page.update()
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
-    btn_run = ft.ElevatedButton(
-        "Start Analysis",
+    btn_run = ft.Button(
+        content="Start Analysis",
         icon=ft.Icons.PLAY_ARROW,
         on_click=on_start_analysis,
-        style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE_700),
+        bgcolor=ft.Colors.BLUE_700,
+        color=ft.Colors.WHITE,
     )
 
     config_row = ft.Row(
@@ -486,4 +489,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

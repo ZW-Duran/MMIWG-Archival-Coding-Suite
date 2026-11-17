@@ -1,4 +1,4 @@
-flet==0.28.3
+flet>=1.0.0
 pymupdf>=1.25.0
 rapidocr-onnxruntime>=1.4.0
 ocrmypdf>=16.5.0

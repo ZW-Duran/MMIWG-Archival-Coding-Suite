@@ -1,4 +1,4 @@
-flet==0.28.3
+flet>=1.0.0
 pymupdf>=1.25.0
 google-genai>=1.0.0
 pyinstaller>=6.10.0

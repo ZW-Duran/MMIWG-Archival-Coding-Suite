@@ -60,11 +60,11 @@ def main(page: ft.Page):
     active_backend_text = ft.Text("", size=12, color=ft.Colors.GREY_700)
 
     check_deps_btn = ft.OutlinedButton(
-        "Check Status",
+        content="Check Status",
         icon=ft.Icons.REFRESH,
     )
-    install_deps_btn = ft.ElevatedButton(
-        "Install System OCR Tools (brew / winget)",
+    install_deps_btn = ft.Button(
+        content="Install System OCR Tools (brew / winget)",
         icon=ft.Icons.DOWNLOAD,
         bgcolor=ft.Colors.BLUE_700,
         color=ft.Colors.WHITE,
@@ -94,40 +94,41 @@ def main(page: ft.Page):
         value=True,
     )
 
-    def on_input_dir_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            input_dir_tf.value = e.path
+    input_picker = ft.FilePicker()
+    output_picker = ft.FilePicker()
+
+    async def on_browse_input(e):
+        path = await input_picker.get_directory_path(dialog_title="Select Input Folder (Folder A)")
+        if path:
+            input_dir_tf.value = path
             page.update()
 
-    def on_output_dir_picked(e: ft.FilePickerResultEvent):
-        if e.path:
-            output_dir_tf.value = e.path
+    async def on_browse_output(e):
+        path = await output_picker.get_directory_path(dialog_title="Select Output Folder (Folder B)")
+        if path:
+            output_dir_tf.value = path
             page.update()
-
-    input_picker = ft.FilePicker(on_result=on_input_dir_picked)
-    output_picker = ft.FilePicker(on_result=on_output_dir_picked)
-    page.overlay.extend([input_picker, output_picker])
 
     browse_input_btn = ft.OutlinedButton(
-        "Browse",
+        content="Browse",
         icon=ft.Icons.FOLDER_OPEN,
-        on_click=lambda _: input_picker.get_directory_path(dialog_title="Select Input Folder (Folder A)"),
+        on_click=on_browse_input,
     )
     browse_output_btn = ft.OutlinedButton(
-        "Browse",
+        content="Browse",
         icon=ft.Icons.FOLDER_OPEN,
-        on_click=lambda _: output_picker.get_directory_path(dialog_title="Select Output Folder (Folder B)"),
+        on_click=on_browse_output,
     )
 
     # --- Section 3: Execution, Counters & Logs ---
-    start_btn = ft.ElevatedButton(
-        "Start Batch OCR",
+    start_btn = ft.Button(
+        content="Start Batch OCR",
         icon=ft.Icons.PLAY_ARROW,
         bgcolor=ft.Colors.GREEN_700,
         color=ft.Colors.WHITE,
     )
     stop_btn = ft.OutlinedButton(
-        "Stop",
+        content="Stop",
         icon=ft.Icons.STOP,
         disabled=True,
     )
@@ -188,7 +189,7 @@ def main(page: ft.Page):
                 check_deps_btn.disabled = False
                 refresh_deps()
 
-        threading.Thread(target=worker, daemon=True).start()
+        page.run_thread(worker)
 
     install_deps_btn.on_click = on_install_deps
 
@@ -328,7 +329,7 @@ def main(page: ft.Page):
             finally:
                 set_running_ui(False)
 
-        threading.Thread(target=batch_worker, daemon=True).start()
+        page.run_thread(batch_worker)
 
     start_btn.on_click = on_start_click
 
@@ -383,7 +384,7 @@ def main(page: ft.Page):
                         progress_bar,
                         ft.Container(
                             content=log_list,
-                            border=ft.border.all(1, ft.Colors.GREY_300),
+                            border=ft.Border.all(1, ft.Colors.GREY_300),
                             border_radius=6,
                             padding=8,
                             bgcolor=ft.Colors.GREY_50,
@@ -399,4 +400,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)
