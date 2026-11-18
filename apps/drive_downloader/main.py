@@ -176,7 +176,7 @@ def main(page: ft.Page):
     )
 
     downloaded_stat = ft.Text("Downloaded: 0", size=13, color=ft.Colors.GREEN_700, weight=ft.FontWeight.W_500)
-    skipped_stat = ft.Text("Skipped: 0", size=13, color=ft.Colors.GREY_700, weight=ft.FontWeight.W_500)
+    skipped_stat = ft.Text("Skipped: 0", size=13, color=ft.Colors.ON_SURFACE_VARIANT, weight=ft.FontWeight.W_500)
     failed_stat = ft.Text("Failed: 0", size=13, color=ft.Colors.RED_700, weight=ft.FontWeight.W_500)
     status_text = ft.Text("Ready to download.", size=13, color=ft.Colors.BLUE_700, weight=ft.FontWeight.W_500)
 
@@ -349,13 +349,33 @@ def main(page: ft.Page):
 
     start_btn.on_click = on_start_click
 
+    def toggle_theme(e):
+        is_dark = page.theme_mode == ft.ThemeMode.DARK
+        page.theme_mode = ft.ThemeMode.LIGHT if is_dark else ft.ThemeMode.DARK
+        theme_btn.icon = ft.Icons.DARK_MODE if is_dark else ft.Icons.LIGHT_MODE
+        theme_btn.tooltip = "Switch to Dark Mode" if is_dark else "Switch to Light Mode"
+        page.update()
+
+    theme_btn = ft.IconButton(
+        icon=ft.Icons.DARK_MODE,
+        tooltip="Switch to Dark Mode",
+        on_click=toggle_theme,
+    )
+
     # --- Assemble Layout ---
     page.add(
-        ft.Text("MMIWG Google Drive Batch Downloader", size=22, weight=ft.FontWeight.BOLD),
+        ft.Row(
+            [
+                ft.Text("MMIWG Google Drive Batch Downloader", size=22, weight=ft.FontWeight.BOLD),
+                theme_btn,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         ft.Text(
             "Batch download approved PDF files from exported Google Sheets CSVs into zero-padded 001.pdf names.",
             size=13,
-            color=ft.Colors.GREY_700,
+            color=ft.Colors.ON_SURFACE_VARIANT,
         ),
         ft.Card(
             content=ft.Container(
@@ -400,10 +420,10 @@ def main(page: ft.Page):
                         ft.Container(
                             content=log_list,
                             height=240,
-                            border=ft.Border.all(1, ft.Colors.GREY_300),
+                            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
                             border_radius=6,
                             padding=8,
-                            bgcolor=ft.Colors.GREY_50,
+                            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,
                         ),
                     ],
                     spacing=10,

@@ -87,7 +87,7 @@ def main(page: ft.Page):
     models_dir_text = ft.Text(
         f"Model Folder: {state['models_dir']}",
         size=12,
-        color=ft.Colors.GREY_700,
+        color=ft.Colors.ON_SURFACE_VARIANT,
         selectable=True,
     )
     model_progress = ft.ProgressBar(value=0, visible=False, width=400)
@@ -231,7 +231,7 @@ def main(page: ft.Page):
     add_rule_btn = ft.TextButton(content="Add Highlight Rule", icon=ft.Icons.ADD, on_click=add_rule)
 
     # --- PDF Selection & Processing ---
-    selected_pdf_text = ft.Text("No PDF selected.", size=13, color=ft.Colors.GREY_700)
+    selected_pdf_text = ft.Text("No PDF selected.", size=13, color=ft.Colors.ON_SURFACE_VARIANT)
     run_status_text = ft.Text("", size=13)
     run_progress = ft.ProgressBar(value=0, visible=False, width=450)
 
@@ -246,7 +246,7 @@ def main(page: ft.Page):
         if files:
             state["pdf_path"] = files[0].path
             selected_pdf_text.value = f"Selected: {files[0].name} ({state['pdf_path']})"
-            selected_pdf_text.color = ft.Colors.BLACK87
+            selected_pdf_text.color = ft.Colors.ON_SURFACE
             page.update()
 
     select_pdf_btn = ft.Button(
@@ -444,19 +444,39 @@ def main(page: ft.Page):
         ft.Container(
             content=preview_image,
             alignment=ft.Alignment.CENTER,
-            border=ft.Border.all(1, ft.Colors.GREY_300),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=6,
             padding=8,
         ),
     ]
 
+    def toggle_theme(e):
+        is_dark = page.theme_mode == ft.ThemeMode.DARK
+        page.theme_mode = ft.ThemeMode.LIGHT if is_dark else ft.ThemeMode.DARK
+        theme_btn.icon = ft.Icons.DARK_MODE if is_dark else ft.Icons.LIGHT_MODE
+        theme_btn.tooltip = "Switch to Dark Mode" if is_dark else "Switch to Light Mode"
+        page.update()
+
+    theme_btn = ft.IconButton(
+        icon=ft.Icons.DARK_MODE,
+        tooltip="Switch to Dark Mode",
+        on_click=toggle_theme,
+    )
+
     # --- Assemble Layout ---
     page.add(
-        ft.Text("MMIWG Semantic Highlighter (Desktop)", size=22, weight=ft.FontWeight.BOLD),
+        ft.Row(
+            [
+                ft.Text("MMIWG Semantic Highlighter (Desktop)", size=22, weight=ft.FontWeight.BOLD),
+                theme_btn,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         ft.Text(
             "Manual screening assistant: highlight NER entities in PDFs and extract NewsBank metadata.",
             size=13,
-            color=ft.Colors.GREY_700,
+            color=ft.Colors.ON_SURFACE_VARIANT,
         ),
         ft.Card(
             content=ft.Container(

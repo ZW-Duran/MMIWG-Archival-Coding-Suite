@@ -57,7 +57,7 @@ def main(page: ft.Page):
         width=560,
     )
     deps_status_text = ft.Text("Checking dependencies...", size=13)
-    active_backend_text = ft.Text("", size=12, color=ft.Colors.GREY_700)
+    active_backend_text = ft.Text("", size=12, color=ft.Colors.ON_SURFACE_VARIANT)
 
     check_deps_btn = ft.OutlinedButton(
         content="Check Status",
@@ -333,13 +333,33 @@ def main(page: ft.Page):
 
     start_btn.on_click = on_start_click
 
+    def toggle_theme(e):
+        is_dark = page.theme_mode == ft.ThemeMode.DARK
+        page.theme_mode = ft.ThemeMode.LIGHT if is_dark else ft.ThemeMode.DARK
+        theme_btn.icon = ft.Icons.DARK_MODE if is_dark else ft.Icons.LIGHT_MODE
+        theme_btn.tooltip = "Switch to Dark Mode" if is_dark else "Switch to Light Mode"
+        page.update()
+
+    theme_btn = ft.IconButton(
+        icon=ft.Icons.DARK_MODE,
+        tooltip="Switch to Dark Mode",
+        on_click=toggle_theme,
+    )
+
     # --- Assemble Layout ---
     page.add(
-        ft.Text("MMIWG Batch OCR Processor", size=22, weight=ft.FontWeight.BOLD),
+        ft.Row(
+            [
+                ft.Text("MMIWG Batch OCR Processor", size=22, weight=ft.FontWeight.BOLD),
+                theme_btn,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         ft.Text(
             "Batch convert scanned PDFs from Folder A into searchable OCR PDFs in Folder B.",
             size=13,
-            color=ft.Colors.GREY_700,
+            color=ft.Colors.ON_SURFACE_VARIANT,
         ),
         ft.Card(
             content=ft.Container(
@@ -384,10 +404,10 @@ def main(page: ft.Page):
                         progress_bar,
                         ft.Container(
                             content=log_list,
-                            border=ft.Border.all(1, ft.Colors.GREY_300),
+                            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
                             border_radius=6,
                             padding=8,
-                            bgcolor=ft.Colors.GREY_50,
+                            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,
                         ),
                     ],
                     spacing=10,

@@ -81,6 +81,8 @@ jobs:
               --add-data "core;core" \
               --hidden-import core.prompts \
               --hidden-import core.pdf_utils \
+              --hidden-import google.genai \
+              --hidden-import google.genai.types \
               -y
           elif [ "$app" = "single_coder_desktop" ]; then
             PYTHONPATH=. flet pack "apps/$app/main.py" \
@@ -88,6 +90,8 @@ jobs:
               --icon "$icon_path" \
               --add-data "core;core" \
               --hidden-import core.prompts \
+              --hidden-import google.genai \
+              --hidden-import google.genai.types \
               -y
           elif [ "$app" = "highlighter_desktop" ]; then
             SPACY_DIR=$(python -c "import spacy, os; print(os.path.dirname(spacy.__file__))")
@@ -171,6 +175,8 @@ jobs:
               --add-data "core:core" \
               --hidden-import core.prompts \
               --hidden-import core.pdf_utils \
+              --hidden-import google.genai \
+              --hidden-import google.genai.types \
               -y
           elif [ "$app" = "single_coder_desktop" ]; then
             PYTHONPATH=. flet pack "apps/$app/main.py" \
@@ -178,6 +184,8 @@ jobs:
               --icon "$icon_path" \
               --add-data "core:core" \
               --hidden-import core.prompts \
+              --hidden-import google.genai \
+              --hidden-import google.genai.types \
               -y
           elif [ "$app" = "highlighter_desktop" ]; then
             SPACY_DIR=$(python -c "import spacy, os; print(os.path.dirname(spacy.__file__))")

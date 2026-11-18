@@ -201,7 +201,7 @@ def main(page: ft.Page):
         column_spacing=20,
         data_row_min_height=40,
         data_row_max_height=140,
-        heading_row_color=ft.Colors.GREY_100,
+        heading_row_color=ft.Colors.SURFACE_CONTAINER_HIGH,
     )
 
     evidence_card = ft.Card(
@@ -218,7 +218,7 @@ def main(page: ft.Page):
                     ft.Text(
                         "Automatically checks each returned verbatim quote against the source article text.",
                         size=12,
-                        color=ft.Colors.GREY_700,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
                     ),
                     ft.Row([evidence_table], scroll=ft.ScrollMode.AUTO),
                 ],
@@ -437,12 +437,32 @@ def main(page: ft.Page):
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
+    def toggle_theme(e):
+        is_dark = page.theme_mode == ft.ThemeMode.DARK
+        page.theme_mode = ft.ThemeMode.LIGHT if is_dark else ft.ThemeMode.DARK
+        theme_btn.icon = ft.Icons.DARK_MODE if is_dark else ft.Icons.LIGHT_MODE
+        theme_btn.tooltip = "Switch to Dark Mode" if is_dark else "Switch to Light Mode"
+        page.update()
+
+    theme_btn = ft.IconButton(
+        icon=ft.Icons.DARK_MODE,
+        tooltip="Switch to Dark Mode",
+        on_click=toggle_theme,
+    )
+
     page.add(
-        ft.Text("One-Touch News Text Quantitative Coding Tool", size=22, weight=ft.FontWeight.BOLD),
+        ft.Row(
+            [
+                ft.Text("One-Touch News Text Quantitative Coding Tool", size=22, weight=ft.FontWeight.BOLD),
+                theme_btn,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         ft.Text(
             "Fast-track single-article coding with verbatim evidence cross-referencing.",
             size=13,
-            color=ft.Colors.GREY_700,
+            color=ft.Colors.ON_SURFACE_VARIANT,
         ),
         ft.Card(
             content=ft.Container(
