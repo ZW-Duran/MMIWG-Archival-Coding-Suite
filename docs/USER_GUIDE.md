@@ -126,11 +126,16 @@ The matching engine looks for files using the **three-digit zero-padded row pref
    * **Output CSV**: Select where results will be written (e.g., `list_coded.csv`).
    * **Source Files Directory**: Select the folder containing your `001.txt` / `001.pdf` files.
 3. **Coding Configuration**:
-   * **Coding Part**: Select `Part 1` (MMIWG Themes), `Part 2` (Government & Legal Officials), `Part 3` (Academics & Advocates), or `Part 4` (Victims & Suspects Demographics).
+   * **Coding Part (CSV Column Mapping)**: Select one of the four built-in codebook parts (each option displays a full summary of its coded variables):
+     * `Part 1` — MMIWG Themes & Framing
+     * `Part 2` — Institutional & Legal Actors
+     * `Part 3` — Experts & Community Voices
+     * `Part 4` — Victims & Suspects Demographics
+   * **Custom Prompt (Optional)**: Click **Load Custom Prompt (.txt)** to override the built-in codebook instructions with your own `.txt` prompt file (click **Use Built-in Part Prompt** to restore). The selected **Coding Part** still determines which CSV columns are checked and backfilled.
    * **Model**: Leave the recommended default (`gemma-4-31b-it` or `gemini-3.5-flash-lite`).
    * **Start Row**: Leave as `0` to process all remaining un-coded rows.
 4. **API Keys**: Paste Gemini API Key 1 (and optionally Key 2).
-5. Click **Start Batch Coding**.
+5. Click **Start Batch Analysis**. *(Tip: Use the moon/sun icon in the top-right corner of any desktop app to switch between Light and Dark mode.)*
 
 ![Batch Coder interface showing input/output CSV selectors, Part dropdown, dual API key inputs, and live coding log](./batch_coder_ui.png)
 
@@ -141,12 +146,13 @@ The matching engine looks for files using the **three-digit zero-padded row pref
 **Purpose**: Ideal for testing prompts, pilot coding, or fast-track coding of individual articles with **built-in verbatim evidence cross-referencing**—all inside a standalone `.exe` / `.app` without spinning up a browser.
 
 * **Include Verbatim Evidence for Cross-Referencing (Enabled by default)**: Instructs the model to return the exact supporting sentence from the article alongside every coded variable (`Part 1`–`Part 4`).
+* **Custom Prompt Support (`.txt`)**: Optionally click **Load Custom Prompt (.txt)** to test your own external prompt file, or click **Use Built-in Part Prompt** to switch back to the canonical Part 1–4 codebook.
 * **Cross-Reference Evidence Verification Table**: Automatically checks whether each quoted sentence appears verbatim in the source article text (`Verified in text` vs. `Quote check / paraphrased`), allowing researchers to double-check AI decisions immediately.
 * **Copy / Save JSON**: Copy the structured JSON output to the clipboard or save it directly as `coding_output.json`.
 
 #### Step-by-Step
 1. Launch **SingleCoder**.
-2. Select your **Coding Part** (`Part 1`–`Part 4`) and **Model**, and keep **Include Verbatim Evidence for Cross-Referencing** checked (or uncheck for counts/values only).
+2. Select your **Coding Part** (`Part 1`–`Part 4`, with full variable summaries shown in the dropdown) and **Model**, and keep **Include Verbatim Evidence for Cross-Referencing** checked (or load an external `.txt` prompt via **Load Custom Prompt (.txt)**).
 3. Paste your Gemini API key (and optionally Key 2 for dual-key alternation).
 4. Provide the article content:
    * Click **Upload/Select Local PDF File** to extract text directly from a PDF, **or**

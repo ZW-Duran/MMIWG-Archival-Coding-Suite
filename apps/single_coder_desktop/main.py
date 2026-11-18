@@ -19,7 +19,8 @@ import flet as ft
 from google import genai
 from google.genai import types
 
-from core.prompts import BATCH_PROMPTS, WEB_PROMPTS
+from core.pdf_utils import read_source_file_content
+from core.prompts import BATCH_PROMPTS, PART_DESCRIPTIONS, WEB_PROMPTS
 
 MODEL_OPTIONS_PER_PART = {
     "Part 1": ["gemma-4-31b-it", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemma-4-26b-it"],
@@ -142,12 +143,17 @@ def main(page: ft.Page):
     page.window.width = 1040
     page.window.height = 860
 
+    state = {
+        "custom_prompt": None,
+        "custom_prompt_name": None,
+    }
+
     # --- UI Controls ---
     task_dropdown = ft.Dropdown(
         label="Select Coding Part:",
-        options=[ft.dropdown.Option(k) for k in BATCH_PROMPTS.keys()],
+        options=[ft.dropdown.Option(key=k, text=PART_DESCRIPTIONS.get(k, k)) for k in BATCH_PROMPTS.keys()],
         value="Part 1",
-        width=220,
+        width=480,
     )
 
     model_dropdown = ft.Dropdown(
@@ -356,6 +362,63 @@ def main(page: ft.Page):
         on_click=on_pick_pdf,
     )
 
+    prompt_picker = ft.FilePicker()
+    prompt_status_text = ft.Text(
+        "Prompt Source: Built-in Part 1–4 Codebook",
+        size=12,
+        color=ft.Colors.ON_SURFACE_VARIANT,
+    )
+
+    def on_clear_prompt(e):
+        state["custom_prompt"] = None
+        state["custom_prompt_name"] = None
+        prompt_status_text.value = "Prompt Source: Built-in Part 1–4 Codebook"
+        prompt_status_text.color = ft.Colors.ON_SURFACE_VARIANT
+        clear_prompt_btn.visible = False
+        evidence_checkbox.disabled = False
+        page.update()
+
+    clear_prompt_btn = ft.TextButton(
+        content="Use Built-in Part Prompt",
+        icon=ft.Icons.RESTORE,
+        visible=False,
+        on_click=on_clear_prompt,
+    )
+
+    async def on_load_prompt(e):
+        files = await prompt_picker.pick_files(
+            dialog_title="Select Custom Prompt (.txt)",
+            allow_multiple=False,
+            allowed_extensions=["txt"],
+        )
+        if files and files[0].path:
+            picked = files[0].path
+            try:
+                content = read_source_file_content(picked).strip()
+            except Exception as err:
+                status_text.value = f"Failed to read prompt file: {err}"
+                status_text.color = ft.Colors.RED_700
+                page.update()
+                return
+            if not content:
+                status_text.value = "Error: Selected prompt .txt file is empty."
+                status_text.color = ft.Colors.RED_700
+                page.update()
+                return
+            state["custom_prompt"] = content
+            state["custom_prompt_name"] = os.path.basename(picked)
+            prompt_status_text.value = f"Prompt Source: Custom ({state['custom_prompt_name']}, {len(content)} chars)"
+            prompt_status_text.color = ft.Colors.BLUE_700
+            clear_prompt_btn.visible = True
+            evidence_checkbox.disabled = True
+            page.update()
+
+    load_prompt_btn = ft.OutlinedButton(
+        content="Load Custom Prompt (.txt)",
+        icon=ft.Icons.UPLOAD_FILE,
+        on_click=on_load_prompt,
+    )
+
     def on_start_analysis(e):
         key1 = api_key_1_input.value or ""
         key2 = api_key_2_input.value or ""
@@ -363,6 +426,8 @@ def main(page: ft.Page):
         part = task_dropdown.value
         selected_model = model_dropdown.value
         include_evidence = bool(evidence_checkbox.value)
+        custom_prompt = state["custom_prompt"]
+        custom_prompt_name = state["custom_prompt_name"]
 
         if not key1.strip():
             status_text.value = "Error: Please provide API Key 1 in the configuration panel."
@@ -377,13 +442,16 @@ def main(page: ft.Page):
             return
 
         btn_run.disabled = True
-        status_text.value = f"Analyzing using [{selected_model}] on [{part}]..."
+        if custom_prompt:
+            status_text.value = f"Analyzing using [{selected_model}] with custom prompt [{custom_prompt_name}]..."
+            active_prompt = custom_prompt
+        else:
+            status_text.value = f"Analyzing using [{selected_model}] on [{part}]..."
+            prompt_map = WEB_PROMPTS if include_evidence else BATCH_PROMPTS
+            active_prompt = prompt_map.get(part, BATCH_PROMPTS[part])
         status_text.color = ft.Colors.BLUE_700
         progress_ring.visible = True
         page.update()
-
-        prompt_map = WEB_PROMPTS if include_evidence else BATCH_PROMPTS
-        active_prompt = prompt_map.get(part, BATCH_PROMPTS[part])
 
         def worker():
             try:
@@ -418,6 +486,13 @@ def main(page: ft.Page):
 
     config_row = ft.Row(
         [task_dropdown, model_dropdown, btn_pick_pdf, evidence_checkbox],
+        alignment=ft.MainAxisAlignment.START,
+        spacing=12,
+        wrap=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    prompt_row = ft.Row(
+        [load_prompt_btn, clear_prompt_btn, prompt_status_text],
         alignment=ft.MainAxisAlignment.START,
         spacing=12,
         wrap=True,
@@ -471,6 +546,7 @@ def main(page: ft.Page):
                     [
                         ft.Text("1. Coding Configuration & API Keys", size=15, weight=ft.FontWeight.BOLD),
                         config_row,
+                        prompt_row,
                         keys_row,
                     ],
                     spacing=10,

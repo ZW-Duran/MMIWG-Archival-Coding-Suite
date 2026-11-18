@@ -17,3 +17,10 @@ WEB_PROMPTS = {
 # Normalize aliases so both 'Part 1' and 'Part 1:' resolve cleanly
 for _k in list(WEB_PROMPTS.keys()):
     WEB_PROMPTS[_k.rstrip(":")] = WEB_PROMPTS[_k]
+
+PART_DESCRIPTIONS = {
+    "Part 1": "Part 1 — MMIWG Themes & Framing (coverage, movement, legal protection, victim/suspect details)",
+    "Part 2": "Part 2 — Institutional & Legal Actors (tribal/state/federal officials, law enforcement, attorneys)",
+    "Part 3": "Part 3 — Experts & Community Voices (academics, advocates/experts, family/friends, ordinary people)",
+    "Part 4": "Part 4 — Victims & Suspects Demographics (victim list, gender/status counts, perpetrator info)",
+}

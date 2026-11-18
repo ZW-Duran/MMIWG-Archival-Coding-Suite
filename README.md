@@ -115,8 +115,8 @@ All applications share the canonical codebook and PDF/NER utilities in `core/`, 
 | :--- | :--- | :--- | :--- | :--- |
 | `apps/drive_downloader` | Flet (`1.0+`) | `main.py` | `DriveDownloader` | Streams public Google Drive links from CSV into zero-padded `001.pdf` files. |
 | `apps/ocr_desktop` | Flet (`1.0+`) | `main.py` | `OCRProcessor` | Hybrid OCR engine (`ocr_engine.py`): ships zero-dependency `RapidOCR` + `PyMuPDF` fallback for machines without Homebrew/winget, and auto-upgrades to `Ghostscript + OCRmyPDF` or `Tesseract` when installed (with one-click `brew`/`winget` installer). |
-| `apps/batch_coder` | Flet (`1.0+`) | `main.py` | `BatchCoder` | Multi-threaded Gemini coder using `BATCH_PROMPTS`; supports dual-key rotation, `.txt`-over-`.pdf` priority, and incremental CSV resume. |
-| `apps/single_coder_desktop` | Flet (`1.0+`) | `main.py` | `SingleCoder` | Fast-track single-article coder using `WEB_PROMPTS` (or `BATCH_PROMPTS`) with live verbatim quote verification against source text and JSON export. |
+| `apps/batch_coder` | Flet (`1.0+`) | `main.py` | `BatchCoder` | Multi-threaded Gemini coder (`google-genai`) using `BATCH_PROMPTS` or custom `.txt` prompts; supports dual-key rotation, `.txt`-over-`.pdf` priority, and incremental CSV resume. |
+| `apps/single_coder_desktop` | Flet (`1.0+`) | `main.py` | `SingleCoder` | Fast-track single-article coder (`google-genai`) using `WEB_PROMPTS`, `BATCH_PROMPTS`, or custom `.txt` prompts with live verbatim quote verification and JSON export. |
 | `apps/highlighter_desktop` | Flet (`1.0+`) | `main.py` | `Highlighter` | On-demand `en_core_web_sm` / `md` / `lg` wheel downloader (`model_manager.py`, no `pip` required in frozen binaries); stores models in `~/Documents/MMIWG_Models` (user-configurable) and extracts 11-column NewsBank metadata. |
 | `apps/reader_web` | Streamlit | `semantic_highlighter.py` | *Source / ZIP only* | Retained for `en_core_web_trf` (PyTorch + ~500 MB weights, too large for `.exe`/`.app` bundling). |
 
@@ -182,7 +182,7 @@ Platform-specific one-click wrappers are organized under `pipeline/01_scraping/s
 
 ## Shared Core & Legacy Code
 
-* **`core/prompts.py`**: Contains the canonical **Part 1–4** codebook definitions (`BATCH_PROMPTS` and `WEB_PROMPTS`). Any updates to variable definitions or exclusion criteria should be made here once so all apps stay synchronized.
+* **`core/prompts.py`**: Contains the canonical **Part 1–4** codebook definitions (`BATCH_PROMPTS`, `WEB_PROMPTS`, and `PART_DESCRIPTIONS`). Any updates to variable definitions or exclusion criteria should be made here once so all apps stay synchronized.
 * **`core/pdf_utils.py`**: Shared PyMuPDF text extraction, path sanitization, and 11-column NewsBank metadata parser.
 * **`core/ner_highlighter.py`**: Shared spaCy NER PDF annotation engine used by `highlighter_desktop` and `reader_web`.
 * **`legacy/`**: Contains superseded scripts (`streamlit_app.py`, `ollama_batch_coder.py`, and `cloud_templates/`) preserved strictly for historical reference.
@@ -199,6 +199,12 @@ Platform-specific one-click wrappers are organized under `pipeline/01_scraping/s
 
 > [!NOTE]
 > **System Dependencies for CLI Batch OCR**: `pipeline/02_preprocessing/scripts/ocr_batch.*` and `ocr_and_merge.command` require `ocrmypdf`, `tesseract`, `ghostscript` (`gs`), and `poppler` (`pdfunite`) installed on your system. (For a zero-dependency GUI alternative, use the packaged `OCRProcessor` app from `apps/ocr_desktop`.)
+
+---
+
+## Acknowledgments
+
+This software was developed in support of the MMIWG archival research project led by Dr. Rocha Beardall at the University of Washington. The author gratefully acknowledges the support of an Undergraduate Research Assistant Fellowship received during this research initiative.
 
 ---
 

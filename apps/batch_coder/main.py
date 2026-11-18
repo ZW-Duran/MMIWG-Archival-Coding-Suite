@@ -23,7 +23,7 @@ from google import genai
 from google.genai import types
 
 from core.pdf_utils import clean_path, read_source_file_content
-from core.prompts import BATCH_PROMPTS as PROMPTS
+from core.prompts import BATCH_PROMPTS as PROMPTS, PART_DESCRIPTIONS
 
 
 def locate_source_file_by_row_index(row_idx: int, directory: str) -> str:
@@ -125,7 +125,7 @@ def analyze_text_with_gemini(
 
 
 def process_single_row(task):
-    idx, row, part, model_name, ocred_dir, key1, key2, stop_event = task
+    idx, row, part, model_name, ocred_dir, key1, key2, stop_event, custom_prompt = task
     if stop_event.is_set():
         return idx, row, False, f"⏹️ Row [{idx}]: Cancelled by user."
 
@@ -143,7 +143,7 @@ def process_single_row(task):
     if not full_text.strip():
         return idx, row, False, f"⚠️ Row [{idx}] Empty text in [{ext_name}], skipped."
 
-    system_instruction = PROMPTS[part]
+    system_instruction = custom_prompt if custom_prompt else PROMPTS[part]
     analysis = analyze_text_with_gemini(full_text, idx, system_instruction, model_name, key1, key2)
     if not analysis:
         return idx, row, False, f"⚠️ Row [{idx}] AI analysis failed or returned non-JSON format."
@@ -252,6 +252,8 @@ def main(page: ft.Page):
         "running": False,
         "stop_event": threading.Event(),
         "log_lock": threading.Lock(),
+        "custom_prompt": None,
+        "custom_prompt_name": None,
     }
 
     # --- Section 1: File & Directory Paths ---
@@ -324,22 +326,77 @@ def main(page: ft.Page):
 
     # --- Section 2: Coding & Model Configuration (fixed widths inside wrap=True Rows) ---
     task_dropdown = ft.Dropdown(
-        label="Coding Part",
-        options=[ft.dropdown.Option(k) for k in PROMPTS.keys()],
+        label="Coding Part (CSV Column Mapping)",
+        options=[ft.dropdown.Option(key=k, text=PART_DESCRIPTIONS.get(k, k)) for k in PROMPTS.keys()],
         value="Part 1",
-        width=200,
+        width=480,
     )
     model_dropdown = ft.Dropdown(
         label="Model",
         options=[ft.dropdown.Option(m) for m in MODEL_OPTIONS_PER_PART["Part 1"]],
         value=DEFAULT_MODEL_PER_PART["Part 1"],
-        width=260,
+        width=240,
     )
     start_row_input = ft.TextField(
         label="Start Row (0 or 1 = row 1)",
         value="0",
         width=200,
         dense=True,
+    )
+
+    prompt_picker = ft.FilePicker()
+    prompt_status_text = ft.Text(
+        "Prompt Source: Built-in Part 1–4 Codebook",
+        size=12,
+        color=ft.Colors.ON_SURFACE_VARIANT,
+    )
+
+    def on_clear_prompt(e):
+        state["custom_prompt"] = None
+        state["custom_prompt_name"] = None
+        prompt_status_text.value = "Prompt Source: Built-in Part 1–4 Codebook"
+        prompt_status_text.color = ft.Colors.ON_SURFACE_VARIANT
+        clear_prompt_btn.visible = False
+        page.update()
+
+    clear_prompt_btn = ft.TextButton(
+        content="Use Built-in Part Prompt",
+        icon=ft.Icons.RESTORE,
+        visible=False,
+        on_click=on_clear_prompt,
+    )
+
+    async def on_load_prompt(e):
+        files = await prompt_picker.pick_files(
+            dialog_title="Select Custom Prompt (.txt)",
+            allow_multiple=False,
+            allowed_extensions=["txt"],
+        )
+        if files and files[0].path:
+            picked = files[0].path
+            try:
+                content = read_source_file_content(picked).strip()
+            except Exception as ex:
+                status_text.value = f"❌ Failed to read prompt file: {ex}"
+                status_text.color = ft.Colors.RED_700
+                page.update()
+                return
+            if not content:
+                status_text.value = "❌ Selected prompt .txt file is empty."
+                status_text.color = ft.Colors.RED_700
+                page.update()
+                return
+            state["custom_prompt"] = content
+            state["custom_prompt_name"] = os.path.basename(picked)
+            prompt_status_text.value = f"Prompt Source: Custom ({state['custom_prompt_name']}, {len(content)} chars)"
+            prompt_status_text.color = ft.Colors.BLUE_700
+            clear_prompt_btn.visible = True
+            page.update()
+
+    load_prompt_btn = ft.OutlinedButton(
+        content="Load Custom Prompt (.txt)",
+        icon=ft.Icons.UPLOAD_FILE,
+        on_click=on_load_prompt,
     )
 
     def on_part_changed(e):
@@ -404,6 +461,8 @@ def main(page: ft.Page):
         task_dropdown.disabled = is_running
         model_dropdown.disabled = is_running
         start_row_input.disabled = is_running
+        load_prompt_btn.disabled = is_running
+        clear_prompt_btn.disabled = is_running
         key1_input.disabled = is_running
         key2_input.disabled = is_running
         progress_bar.visible = is_running
@@ -457,9 +516,13 @@ def main(page: ft.Page):
         status_text.color = ft.Colors.BLUE_700
         page.update()
 
+        custom_prompt_val = state["custom_prompt"]
+        custom_prompt_name = state["custom_prompt_name"]
+
         def worker():
             try:
-                append_log(f"🚀 Initializing Batch Process for [{part}] using [{model_name}]...")
+                prompt_label = f"Custom ({custom_prompt_name})" if custom_prompt_val else f"Built-in {part}"
+                append_log(f"🚀 Initializing Batch Process for [{part}] using [{model_name}] ({prompt_label})...")
                 append_log(f"📖 CSV Input: {csv_p}")
                 append_log(f"💾 CSV Output: {out_csv_p}")
                 append_log(f"📂 Source Folder: {ocred_dir_p} (TXT Preferred over PDF, All Depths)")
@@ -492,7 +555,17 @@ def main(page: ft.Page):
 
                     if e_col_val and check_val == "":
                         todo_tasks.append(
-                            (idx, row, part, model_name, ocred_dir_p, key1, key2, state["stop_event"])
+                            (
+                                idx,
+                                row,
+                                part,
+                                model_name,
+                                ocred_dir_p,
+                                key1,
+                                key2,
+                                state["stop_event"],
+                                custom_prompt_val,
+                            )
                         )
 
                 total_tasks = len(todo_tasks)
@@ -623,6 +696,12 @@ def main(page: ft.Page):
                         ft.Row(
                             [task_dropdown, model_dropdown, start_row_input],
                             spacing=14,
+                            wrap=True,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Row(
+                            [load_prompt_btn, clear_prompt_btn, prompt_status_text],
+                            spacing=12,
                             wrap=True,
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         ),
