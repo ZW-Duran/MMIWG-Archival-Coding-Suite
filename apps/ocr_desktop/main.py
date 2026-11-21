@@ -64,7 +64,7 @@ def main(page: ft.Page):
         icon=ft.Icons.REFRESH,
     )
     install_deps_btn = ft.Button(
-        content="Install System OCR Tools (brew / winget)",
+        content="Install System OCR Tools (apt / brew / winget)",
         icon=ft.Icons.DOWNLOAD,
         bgcolor=ft.Colors.BLUE_700,
         color=ft.Colors.WHITE,

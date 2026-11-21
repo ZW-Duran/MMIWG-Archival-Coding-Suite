@@ -205,7 +205,26 @@ def install_system_deps(log_callback=None) -> bool:
             log(f"[ERROR] Failed to open Terminal.app: {ex}")
             return False
 
-    log(f"[INFO] Automated install is only configured for Windows/macOS (current OS: {system}).")
+    if system == "Linux":
+        pkexec = find_binary(["pkexec"], env=env)
+        apt_get = find_binary(["apt-get"], env=env)
+        if pkexec and apt_get:
+            log("[*] Installing tesseract-ocr, ghostscript, ocrmypdf via pkexec apt-get...")
+            rc = _stream_process(
+                [pkexec, apt_get, "install", "-y", "tesseract-ocr", "ghostscript", "ocrmypdf"],
+                env,
+                log,
+            )
+            if rc == 0:
+                log("[OK] System OCR tools installed successfully via apt-get.")
+                return True
+            log(f"[WARNING] apt-get exited with code {rc}.")
+        log("[INFO] On Ubuntu / Debian / Chromebook (Linux), install system OCR tools in Terminal:")
+        log("       sudo apt update && sudo apt install -y tesseract-ocr ghostscript ocrmypdf")
+        log("[TIP] Built-in Offline OCR (RapidOCR) already works with zero system installs.")
+        return False
+
+    log(f"[INFO] Automated install is not configured for OS: {system}.")
     return False
 
 

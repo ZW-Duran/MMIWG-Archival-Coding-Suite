@@ -20,12 +20,22 @@ Welcome! This guide is written for non-technical researchers, student assistants
 
 ---
 
-## 2. Desktop Apps Setup (Windows & macOS)
+## 2. Desktop Apps Setup (Windows, macOS & Linux / Chromebook)
 
 ### Downloading Pre-built Apps
 Download the executable for your operating system from the repository's **Releases** tab:
 * **Windows**: Download `DriveDownloader-Windows.exe`, `OCRProcessor-Windows.exe`, `BatchCoder-Windows.exe`, `SingleCoder-Windows.exe`, or `Highlighter-Windows.exe`. Double-click to run.
 * **macOS**: Download `DriveDownloader-macOS.zip`, `OCRProcessor-macOS.zip`, `BatchCoder-macOS.zip`, `SingleCoder-macOS.zip`, or `Highlighter-macOS.zip`. Double-click to unzip, then drag the `.app` to your Applications folder.
+* **Linux (Ubuntu / Debian / Chromebook Crostini x86_64)**: Download `DriveDownloader-Linux`, `OCRProcessor-Linux`, `BatchCoder-Linux`, `SingleCoder-Linux`, or `Highlighter-Linux`. Make the file executable and run it:
+  ```bash
+  chmod +x *-Linux
+  ./SingleCoder-Linux
+  ```
+  * *Chromebook / Minimal Debian Note*: If file-picker dialogs or the GUI window need system GTK libraries, install them once in your Linux terminal:
+    ```bash
+    sudo apt update && sudo apt install -y libgtk-3-0 zenity
+    ```
+  * *ARM64 Chromebooks*: Pre-built Linux binaries target `x86_64`. On ARM64 Chromebooks, run directly from Python source (`pip install -r apps/<app_name>/requirements.txt && python apps/<app_name>/main.py`).
 
 ### First-Time OS Security Bypass (No Terminal Needed)
 Because these open-source tools are built for academic research without a paid Apple/Microsoft commercial signature:
@@ -82,9 +92,10 @@ The downloader automatically names files using **three-digit zero-padded row ind
 
 #### Zero-Dependency Built-In OCR vs. System OCR Tools
 * **Works Immediately Without Homebrew or Admin Installs**: Includes a built-in offline OCR engine (`RapidOCR` + `PyMuPDF`) that works straight out of the `.exe` / `.app` even on Macs without Homebrew/Xcode.
-* **Optional System OCR Upgrade (`Ghostscript` + `Tesseract` + `OCRmyPDF`)**: If you want `OCRmyPDF` archival compression, click **Install System OCR Tools (brew / winget)** inside the app:
+* **Optional System OCR Upgrade (`Ghostscript` + `Tesseract` + `OCRmyPDF`)**: If you want `OCRmyPDF` archival compression, click **Install System OCR Tools (apt / brew / winget)** inside the app:
   * **Windows**: Automatically installs `Tesseract OCR` and `Ghostscript` via `winget` (auto-accepting license prompts).
   * **macOS**: Uses Homebrew (`NONINTERACTIVE=1`) if already installed, or opens Terminal to guide Homebrew + `OCRmyPDF` setup.
+  * **Linux (Ubuntu / Debian / Chromebook)**: Uses `pkexec apt-get` when available, or prints `sudo apt update && sudo apt install -y tesseract-ocr ghostscript ocrmypdf`.
 
 #### Step-by-Step
 1. Launch **OCRProcessor**.

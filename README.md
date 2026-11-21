@@ -109,7 +109,7 @@ flowchart LR
 
 ## Part 1: Applications Architecture & Build Targets (`apps/`)
 
-All applications share the canonical codebook and PDF/NER utilities in `core/`, and all five desktop applications use a unified **Flet (`1.0+`)** UI with matching icons in `assets/icons/`. They are compiled into standalone `.exe` (Windows) and `.app` (macOS) binaries via [`.github/workflows/build_apps.yml`](./.github/workflows/build_apps.yml); end-users do not need Python or `pip` to run them.
+All applications share the canonical codebook and PDF/NER utilities in `core/`, and all five desktop applications use a unified **Flet (`1.0+`)** UI with matching icons in `assets/icons/`. They are compiled into standalone `.exe` (Windows), `.app` (macOS), and x86_64 Linux binaries (Ubuntu / Debian / Chromebook Crostini) via [`.github/workflows/build_apps.yml`](./.github/workflows/build_apps.yml); end-users do not need Python or `pip` to run them.
 
 | Module | Framework | Entry Point | Release Binary | Technical Notes |
 | :--- | :--- | :--- | :--- | :--- |
@@ -129,7 +129,7 @@ pip install -r apps/<app_name>/requirements.txt
 python apps/<app_name>/main.py
 ```
 
-*(Replace `<app_name>` with `drive_downloader`, `ocr_desktop`, `batch_coder`, `single_coder_desktop`, or `highlighter_desktop`. Builds for Windows and macOS can be triggered manually via `Actions → Build Cross-Platform Desktop Apps`.)*
+*(Replace `<app_name>` with `drive_downloader`, `ocr_desktop`, `batch_coder`, `single_coder_desktop`, or `highlighter_desktop`. Builds for Windows, macOS, and Linux can be triggered manually via `Actions → Build Cross-Platform Desktop Apps`.)*
 
 ### Running `apps/reader_web` (`en_core_web_trf` Transformer Model)
 
